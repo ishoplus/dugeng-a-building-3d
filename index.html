@@ -461,18 +461,7 @@
     <p><b>聲明</b><br>本網站內容為依計畫書繪製之示意，非正式交屋標準。室內隔間、裝修、家具、客變方案與公設裝潢皆為參考，周邊建物高度多為估計；面積以計畫書為準，實際內容以建商核定圖說及買賣（分配）契約為準。</p>
   </div></footer>
 </div>
-<script>
-  // 帶了指定參數（分享連結、截圖、測試）直接進 3D；首頁按鈕在 3D 程式載入前就能按，先記下來
-  (function () {
-    var q = new URLSearchParams(location.search), home = document.getElementById('home');
-    if (['mode', 'req', 'shot', 'selftest', 'scheme', 'venue', 'unit', 'floor'].some(function (k) { return q.has(k); })) home.classList.remove('open');
-    home.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-go]'); if (!b) return;
-      home.classList.remove('open'); home.scrollTop = 0;
-      if (window.homeGo) window.homeGo(b.dataset.go, b.dataset.unit); else window.homePending = [b.dataset.go, b.dataset.unit];
-    });
-  })();
-</script>
+<script src="js/home.js"></script>
 <div id="disclaimer">本體驗依都更事業計畫書（送件版）圖說繪製，室內隔間、家具、裝修皆為示意；周邊建物輪廓、道路與地形取自開放圖資，多數建物高度為估計，面積以計畫書為準，實際以核定圖說及契約為準。</div>
 
 <script type="importmap">
