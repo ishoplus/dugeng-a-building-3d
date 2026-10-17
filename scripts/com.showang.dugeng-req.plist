@@ -13,6 +13,8 @@
     <key>PATH</key><string>/Users/showang/.nvm/versions/node/v22.22.0/bin:/Library/Frameworks/Python.framework/Versions/3.12/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>HOME</key><string>/Users/showang</string>
     <key>LANG</key><string>zh_TW.UTF-8</string>
+    <!-- 網站在 Railway：走 API 拿單（token 從 Keychain dugeng-worker-token 讀） -->
+    <key>DUGENG_SERVER</key><string>https://dugeng-production.up.railway.app</string>
   </dict>
   <key>StandardOutPath</key><string>/Users/showang/projects/dugeng-a-building-3d/logs/req_worker.out</string>
   <key>StandardErrorPath</key><string>/Users/showang/projects/dugeng-a-building-3d/logs/req_worker.err</string>
