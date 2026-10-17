@@ -150,7 +150,14 @@ python3 -m http.server 17088
 
 隔間依計畫書公分尺寸以公尺描繪（內部格子 5cm）；模型室內面積 A1 81.0㎡／A2 53.4㎡，對照計畫書 80.43／54.27㎡。
 
-## 線上版 https://dugeng.xi-za.com
+## Railway（2026-10-17 起）
+- 專案 dugeng／服務 dugeng／production；push main → GitHub Actions（`.github/workflows/deploy.yml`，secret `RAILWAY_TOKEN`＝Railway 專案權杖）→ `railway up --ci`；不要從本機 `railway up`
+- `Dockerfile`：Python 3.12 slim，建置時把 js/ 放進 `site/v<時間戳>/`；`HOST=0.0.0.0`、Railway 注入 `PORT`
+- 需求單與設計結果在 volume `/data`（`DUGENG_DATA=/data/requirements`、`DUGENG_CUSTOM=/data/custom`），重新部署不會清掉；要動檔案用 `railway ssh <指令>`
+- 環境變數 `DUGENG_WORKER_TOKEN`（同一組也在 Mac Keychain `dugeng-worker-token`）：Mac 上的 Claude Code 工作機設 `DUGENG_SERVER` 後走 `/api/worker/*` 拿單、回報、交結果
+- 網址：https://dugeng-production.up.railway.app（備用）；正式 dugeng.xi-za.com 要在 Cloudflare 把 CNAME 指到 `0xg83zmf.up.railway.app`（橘雲）＋TXT `_railway-verify.dugeng`
+
+## 舊：Mac 本機隧道版 https://dugeng.xi-za.com
 - 源站：`scripts/serve.py`（127.0.0.1:17089，服務 `site/`），launchd `com.showang.dugeng-site`
 - 隧道：獨立的 `dugeng`，設定 `~/.cloudflared/dugeng.yml`，launchd `com.cloudflare.cloudflared.dugeng`
 - **更新網站**：改完程式跑 `./scripts/publish.sh` 即可，不用重啟（程式放在 `site/v<時間戳>/`，避開 Cloudflare 4 小時 JS 快取）
