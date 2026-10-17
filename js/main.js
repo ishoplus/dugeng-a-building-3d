@@ -1118,9 +1118,20 @@ $('#envToggle').onclick = () => document.body.classList.toggle('env-open');
   $('#gLook').onclick = () => { close(); apply(); };
   const open = () => { Object.assign(g, { tower: state.tower, unit: state.unit, floor: state.floor }); draw(); $('#guide').classList.add('open'); };
   $('#helpBtn').onclick = open;
-  // 帶了指定參數（分享連結、截圖、測試）就不打擾
-  const direct = ['mode', 'req', 'shot', 'selftest', 'scheme', 'venue'].some(k => params.has(k));
-  if (!localStorage.getItem('guideSeen') && !direct) open();
+  // 首頁（index.html #home）的按鈕：3D 還沒載好時按的，先記在 homePending，這裡補做
+  window.homeGo = (go, unit) => {
+    if (go === 'unit') { if (state.mode !== 'overview') setMode('overview'); open(); }
+    else if (go === 'type') { if (state.unit !== unit) selectUnit(unit); setMode('doll'); }
+    else if (go === 'req') $('#reqTop').click();
+    else setMode(go);
+  };
+  if (window.homePending) window.homeGo(...window.homePending);
+  // 左上標題：回首頁（先退回外觀，漫遊的鍵盤操作才不會在首頁底下繼續走）
+  $('#homeBtn').onclick = () => {
+    if (state.mode !== 'overview') setMode('overview');
+    $('#guide').classList.remove('open'); $('#reqModal').classList.remove('open');
+    $('#home').classList.add('open');
+  };
 }
 // 手機底部抽屜：點標題列切換；在標題列上滑展開、下拉收合
 const setSheet = open => { document.body.classList.toggle('side-closed', !open); if (!open) $('#side').scrollTop = 0; };
