@@ -1,0 +1,21 @@
+# push 到 main 就部署到 Railway（專案 dugeng / 服務 dugeng / production）；需求單資料在 volume /data，部署不會清掉
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g @railway/cli
+      - run: railway up --ci --service dugeng
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

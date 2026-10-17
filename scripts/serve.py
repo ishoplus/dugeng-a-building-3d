@@ -5,12 +5,19 @@
 #   POST /api/req/<id>         修改，body 要帶 key
 #   POST /api/req/<id>/submit  送出給 Claude Code 設計（job 排隊，scripts/req_worker.py 每分鐘處理），body 要帶 key
 # /custom/<id>.json、<id>.png：工作機設計好的方案（data/custom/）
+# /api/worker/*：給 Mac 上的 Claude Code 工作機（scripts/req_worker.py）拿單、回報進度、交結果；要帶 X-Worker-Token（環境變數 DUGENG_WORKER_TOKEN，沒設就關閉）
+#   GET  /api/worker/jobs               排隊中（含設計中太久沒回報）的需求單
+#   POST /api/worker/jobs/<id>          更新 job 欄位 {state, msg, ...}
+#   POST /api/worker/jobs/<id>/result   交設計結果 {design: {...}, png: base64}
 import http.server, os, sys, json, secrets, time, re, hashlib, base64, glob
 from reqstore import DATA, CUSTOM, locked, read, write
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.environ.get('DUGENG_ROOT') or os.path.join(HERE, '..', 'site')          # 本機測試可指到專案根目錄
 MAX_BODY = 32 * 1024
+WORKER_MAX_BODY = 4 * 1024 * 1024        # 結果含俯視圖 PNG
+WORKER_TOKEN = os.environ.get('DUGENG_WORKER_TOKEN', '')
+STALE = 3600
 RATE = {}                                   # (用途, IP) → 時間戳（滑動視窗限流）
 SUBMITS_PER_DAY = 5                         # 每張需求單
 SUBMITS_PER_IP_DAY = 10
@@ -66,19 +73,57 @@ class H(http.server.SimpleHTTPRequestHandler):
         b = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(code); self.send_header('Content-Type', 'application/json; charset=utf-8'); self.send_header('Content-Length', str(len(b)))
         self.end_headers(); self.wfile.write(b)
-    def body(self):
+    def body(self, limit=MAX_BODY):
         n = int(self.headers.get('Content-Length') or 0)
-        if n <= 0 or n > MAX_BODY: return None
+        if n <= 0 or n > limit: return None
         try: return json.loads(self.rfile.read(n))
         except Exception: return None
     def rid(self, suffix=''):
         m = re.fullmatch(r'/api/req/([0-9a-f]{8})' + suffix, self.path.split('?')[0])
         return m and m.group(1)
 
-    def ip(self): return self.headers.get('CF-Connecting-IP') or self.client_address[0]
+    def ip(self):
+        # Cloudflare 前面帶 CF-Connecting-IP；直接打 Railway 網址時用 X-Forwarded-For 第一段
+        return self.headers.get('CF-Connecting-IP') or (self.headers.get('X-Forwarded-For') or '').split(',')[0].strip() or self.client_address[0]
+    def is_worker(self): return bool(WORKER_TOKEN) and secrets.compare_digest(self.headers.get('X-Worker-Token', ''), WORKER_TOKEN)
+
+    def worker(self, method):
+        if not self.is_worker(): return self.json(403, {'error': 'forbidden'})
+        p = self.path.split('?')[0]
+        if method == 'GET' and p == '/api/worker/jobs':
+            now, out = time.time(), []
+            for f in glob.glob(os.path.join(DATA, '*.json')):
+                try: rec = json.load(open(f))
+                except Exception: continue
+                job = rec.get('job') or {}
+                if job.get('state') == 'queued' or (job.get('state') == 'working' and now - job.get('at', 0) > STALE):
+                    out.append({k: rec.get(k) for k in ('id', 'unit', 'items', 'note', 'scheme', 'job')})
+            return self.json(200, {'jobs': out})
+        m = re.fullmatch(r'/api/worker/jobs/([0-9a-f]{8})(/result)?', p)
+        if method != 'POST' or not m: return self.json(404, {'error': 'not found'})
+        rid = m.group(1)
+        d = self.body(WORKER_MAX_BODY)
+        if d is None: return self.json(400, {'error': 'bad body'})
+        if m.group(2):
+            design, png = d.get('design'), d.get('png')
+            if not isinstance(design, dict) or not isinstance(png, str): return self.json(400, {'error': 'bad result'})
+            raw = base64.b64decode(png)
+            if not raw.startswith(b'\x89PNG'): return self.json(400, {'error': 'not png'})
+            for name, data in ((f'{rid}.json', json.dumps(design, ensure_ascii=False).encode()), (f'{rid}.png', raw)):
+                tmp = os.path.join(CUSTOM, name + '.tmp'); open(tmp, 'wb').write(data); os.replace(tmp, os.path.join(CUSTOM, name))
+            return self.json(200, {'ok': True})
+        with locked():
+            rec = read(rid)
+            if not rec: return self.json(404, {'error': 'not found'})
+            job = {k: v for k, v in d.items() if k in ('state', 'msg', 'at', 'scheme', 'unit', 'finished')}
+            rec['job'] = {**(rec.get('job') or {}), **job}
+            write(rid, rec)
+        return self.json(200, {'job': rec['job']})
 
     def do_GET(self):
         p = self.path.split('?')[0]
+        if p.startswith('/api/worker/'): return self.worker('GET')
+        if p == '/healthz': return self.json(200, {'ok': True})
         if (p.startswith('/api/') or p.startswith('/custom/')) and limited('get', self.ip(), 600, 3600):
             return self.json(429, {'error': '查詢太頻繁，請稍後再試'})
         m = re.fullmatch(r'/custom/([0-9a-f]{8})\.(json|png)', p)
@@ -95,6 +140,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         self.json(200, public(rec))
 
     def do_POST(self):
+        if self.path.startswith('/api/worker/'): return self.worker('POST')
         d = self.body()
         if d is None: return self.json(400, {'error': '格式不對'})
         p = self.path.split('?')[0]
@@ -135,5 +181,6 @@ class H(http.server.SimpleHTTPRequestHandler):
         self.json(200, {'id': rid, 'updated': rec['updated']})
 
 if __name__ == '__main__':
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 17089
-    http.server.ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get('PORT', 17089))
+    host = os.environ.get('HOST', '127.0.0.1')            # Railway 要設 0.0.0.0
+    http.server.ThreadingHTTPServer((host, port), H).serve_forever()

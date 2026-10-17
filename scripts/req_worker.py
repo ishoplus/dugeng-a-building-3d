@@ -3,7 +3,33 @@
 # → 不過就把原因丟回去重做（最多 3 次）→ 通過存 data/custom/<id>.json，網站 /custom/ 直接提供，不用重新發布
 import os, sys, json, time, re, math, fcntl, shutil, socket, subprocess, traceback
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from reqstore import DATA, CUSTOM, read, set_job
+import base64, urllib.request
+from reqstore import DATA, CUSTOM, read as local_read, set_job as local_set_job
+
+# 遠端模式：網站在 Railway 時，設 DUGENG_SERVER（例 https://dugeng.xi-za.com）＋ DUGENG_WORKER_TOKEN（或 Keychain dugeng-worker-token），
+# 拿單／回報／交結果都走 /api/worker/*；沒設就照舊讀寫本機 data/
+SERVER = os.environ.get('DUGENG_SERVER', '').rstrip('/')
+def _token():
+    t = os.environ.get('DUGENG_WORKER_TOKEN')
+    if t or not SERVER: return t
+    return subprocess.run(['security', 'find-generic-password', '-s', 'dugeng-worker-token', '-w'], capture_output=True, text=True).stdout.strip()
+TOKEN = _token()
+def api(method, path, body=None):
+    req = urllib.request.Request(SERVER + path, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={'X-Worker-Token': TOKEN, 'Content-Type': 'application/json', 'User-Agent': 'dugeng-req-worker'})
+    with urllib.request.urlopen(req, timeout=60) as r: return json.loads(r.read())
+REMOTE_RECS = {}
+def read(rid): return REMOTE_RECS.get(rid) if SERVER else local_read(rid)
+def set_job(rid, **job):
+    if not SERVER: return local_set_job(rid, **job)
+    try: return api('POST', f'/api/worker/jobs/{rid}', job)
+    except Exception as e: log(rid, '回報失敗', str(e)[:200])
+def save_result(rid, d, png_path):
+    if not SERVER:
+        shutil.copy(png_path, os.path.join(CUSTOM, f'{rid}.png'))
+        with open(os.path.join(CUSTOM, f'{rid}.json'), 'w') as f: json.dump(d, f, ensure_ascii=False)
+        return
+    api('POST', f'/api/worker/jobs/{rid}/result', {'design': d, 'png': base64.b64encode(open(png_path, 'rb').read()).decode()})
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
@@ -262,8 +288,7 @@ def process(rid):
         log(rid, '第', n, '次驗收', '通過' if not E else f'{len(E)} 個問題', '；'.join(E)[:300])
         if not E:
             d['shot'] = f'/custom/{rid}.png'; d['at'] = time.time(); d['warnings'] = W
-            shutil.copy(os.path.join(work, 'shot.png'), os.path.join(CUSTOM, f'{rid}.png'))
-            with open(os.path.join(CUSTOM, f'{rid}.json'), 'w') as f: json.dump(d, f, ensure_ascii=False)
+            save_result(rid, d, os.path.join(work, 'shot.png'))
             done = sum(1 for r in d['results'] if r.get('done'))
             set_job(rid, state='done', msg=f'完成：做到 {done}／{len(d["results"])} 項', scheme='r' + rid, unit=unit, finished=time.time())
             return
@@ -278,9 +303,13 @@ def main():
     try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError: return                                # 上一輪還在跑
     queue = []
-    for fn in os.listdir(DATA):
-        if not fn.endswith('.json'): continue
-        rec = read(fn[:-5]); job = (rec or {}).get('job') or {}
+    if SERVER:
+        try: recs = api('GET', '/api/worker/jobs')['jobs']
+        except Exception as e: log('拿單失敗', str(e)[:200]); return
+        REMOTE_RECS.update({r['id']: r for r in recs})
+    else: recs = [local_read(fn[:-5]) for fn in os.listdir(DATA) if fn.endswith('.json')]
+    for rec in recs:
+        job = (rec or {}).get('job') or {}
         if job.get('state') == 'working' and time.time() - job.get('at', 0) > STALE:
             set_job(rec['id'], state='queued', msg='工作機中斷，重新排隊'); job['state'] = 'queued'
         if job.get('state') == 'queued': queue.append((job.get('at', 0), rec['id']))

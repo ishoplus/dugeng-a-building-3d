@@ -1,0 +1,9 @@
+.git
+site
+data
+logs
+v1
+scripts/geo_raw
+scripts/__pycache__
+*.png
+plan.jpg
