@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A棟 標準層 3D</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#dfe6ec;font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif}
+  #ui{position:fixed;top:12px;left:12px;background:rgba(255,255,255,.92);border-radius:10px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;min-width:220px}
+  #ui h1{font-size:16px;margin:0 0 8px}
+  #ui label{display:block;margin:6px 0}
+  #ui .row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  #ui button{border:1px solid #bbb;background:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px}
+  #info{position:fixed;right:12px;top:12px;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:260px;display:none}
+  #info h2{margin:0 0 6px;font-size:18px}
+  #legend{position:fixed;left:12px;bottom:12px;background:rgba(255,255,255,.9);border-radius:10px;padding:8px 10px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px 12px;max-width:520px}
+  #legend span{display:inline-flex;align-items:center;gap:4px}
+  #legend i{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.2)}
+  #hint{position:fixed;right:12px;bottom:12px;font-size:12px;color:#456;background:rgba(255,255,255,.8);padding:6px 8px;border-radius:6px}
+</style>
+</head>
+<body>
+<div id="ui">
+  <h1>A棟 標準層 3D</h1>
+  <label><input type="checkbox" id="labels" checked> 顯示房間名稱</label>
+  <label><input type="checkbox" id="walls" checked> 顯示牆體</label>
+  <label>樓層數 <b id="fv">1</b>
+    <input type="range" id="floors" min="1" max="25" value="1" style="width:100%"></label>
+  <div class="row">
+    <button data-v="persp">鳥瞰</button>
+    <button data-v="top">平面</button>
+    <button data-v="road">從 30M 路看</button>
+  </div>
+</div>
+<div id="info"></div>
+<div id="legend"></div>
+<div id="hint">拖曳旋轉・右鍵平移・滾輪縮放・點選單元看說明<br>尺寸依平面圖比例推估（以 30M 路寬校正），非施工尺寸</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---- 比例：圖上 30M 道路約 535px → 1px ≈ 0.056m；以平面中心 (345,546) 為原點
+const S = 30 / 535, CX = 345, CY = 546;
+const X = x => (x - CX) * S, Z = y => (y - CY) * S;
+const FLOOR_H = 3.2, WALL_H = 1.5, LOW_H = 0.7, WT = 0.14;
+
+const TYPES = {
+  客餐廳:{c:0xf3e2c3,h:WALL_H}, 主臥室:{c:0xbcd6ef,h:WALL_H}, 臥室:{c:0xc9e6c4,h:WALL_H},
+  衛浴:{c:0xa9d8d8,h:WALL_H}, 廚房:{c:0xf6c79a,h:WALL_H}, 玄關:{c:0xeadcc6,h:WALL_H},
+  陽台:{c:0xd9d9d9,h:LOW_H}, 設備平台:{c:0xbdbdbd,h:LOW_H},
+  梯廳:{c:0xf7f7f2,h:0}, 電梯:{c:0x707a85,h:WALL_H}, 樓梯:{c:0x9aa3ab,h:WALL_H}, 排煙室:{c:0xe9c6c6,h:WALL_H},
+};
+
+// ---- 左上象限（A1 角間 + A2 中間戶），座標為原圖 px [x1,y1,x2,y2]
+const QUAD = [
+  // A1 角間：3房2衛
+  {u:'corner',t:'主臥室',r:[37,345,90,407]},
+  {u:'corner',t:'臥室',  r:[90,345,135,407]},
+  {u:'corner',t:'陽台',  r:[135,345,190,370]},
+  {u:'corner',t:'客餐廳',r:[135,370,200,492],label:true},
+  {u:'corner',t:'客餐廳',r:[117,407,135,500]},
+  {u:'corner',t:'衛浴',  r:[37,422,117,460]},
+  {u:'corner',t:'廚房',  r:[37,460,117,497]},
+  {u:'corner',t:'陽台',  r:[24,500,78,545]},
+  {u:'corner',t:'臥室',  r:[78,500,137,545]},
+  {u:'corner',t:'衛浴',  r:[137,492,170,545]},
+  // A2 中間戶：2房
+  {u:'mid',t:'客餐廳',r:[202,322,250,455],label:true},
+  {u:'mid',t:'玄關',  r:[202,455,235,495]},
+  {u:'mid',t:'陽台',  r:[250,322,300,350]},
+  {u:'mid',t:'設備平台',r:[300,322,343,350]},
+  {u:'mid',t:'臥室',  r:[250,350,300,418]},
+  {u:'mid',t:'主臥室',r:[300,350,343,418]},
+  {u:'mid',t:'衛浴',  r:[250,418,343,455]},
+];
+// 象限鏡射 → 各戶編號
+const QUADS = [
+  {mx:false,my:false,corner:'A1',mid:'A2'},
+  {mx:true, my:false,corner:'A5',mid:'A3'},
+  {mx:true, my:true, corner:'A6',mid:'A7'},
+  {mx:false,my:true, corner:'A9',mid:'A8'},
+];
+const UNIT_INFO = {
+  corner:'角間・3房2衛・客餐廳＋獨立廚房・2個陽台・三面採光',
+  mid:'中間戶・2房・客餐廳進深長・單面採光・入口鄰近電梯核心',
+};
+const ROAD_SIDE = {A6:1,A7:1,A8:1,A9:1};
+
+// 核心筒（不左右鏡射，依原圖）
+const CORE = [
+  {t:'梯廳',r:[170,532,520,570],label:true},
+  {t:'梯廳',r:[170,495,235,600]}, {t:'梯廳',r:[455,495,520,600]},
+  {t:'電梯',r:[235,458,280,532]}, {t:'排煙室',r:[280,458,340,532],label:true},
+  {t:'電梯',r:[340,458,380,532]}, {t:'樓梯',r:[380,458,440,532],label:true},
+  {t:'排煙室',r:[440,458,472,500]},
+  {t:'電梯',r:[235,570,280,640]}, {t:'排煙室',r:[280,570,340,640],label:true},
+  {t:'電梯',r:[340,570,372,640]}, {t:'樓梯',r:[372,570,465,632],label:true},
+];
+// 結構柱（左上象限，鏡射）
+const COLS = [[20,318,48,343],[185,318,207,345],[20,460,46,483],[192,447,207,475],[338,318,352,345]];
+
+// ---- three 基本
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe6ec);
+scene.fog = new THREE.Fog(0xdfe6ec, 120, 260);
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 1000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.495;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f80, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-30, 60, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-60,right:60,top:60,bottom:-60,far:200});
+scene.add(sun);
+
+// ---- 環境：地面、30M 道路、北側道路
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({color:0xcfd5c8}));
+ground.rotation.x = -Math.PI/2; ground.position.y = -0.02; ground.receiveShadow = true;
+scene.add(ground);
+function flat(x1,z1,x2,z2,color,y=0){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(x2-x1, z2-z1), new THREE.MeshStandardMaterial({color}));
+  m.rotation.x = -Math.PI/2; m.position.set((x1+x2)/2, y, (z1+z2)/2); m.receiveShadow = true;
+  scene.add(m); return m;
+}
+const roadZ1 = Z(905), roadZ2 = Z(1440);
+flat(-150, Z(790), 150, roadZ1, 0xe2e0da, 0.005);           // 人行道/退縮
+flat(-150, roadZ1, 150, roadZ2, 0x4b4f55, 0.01);             // 30M 路
+for (let x=-150; x<150; x+=8) flat(x, (roadZ1+roadZ2)/2-0.12, x+4, (roadZ1+roadZ2)/2+0.12, 0xffffff, 0.015);
+for (const k of [1/4, 3/4]) for (let x=-150; x<150; x+=6) flat(x, roadZ1+(roadZ2-roadZ1)*k-0.08, x+3, roadZ1+(roadZ2-roadZ1)*k+0.08, 0xdddddd, 0.015);
+flat(-150, Z(300), 150, Z(0)-0, 0x5a5e63, 0.01);             // 北側道路（建築線外）
+flat(-150, Z(300), 150, Z(316), 0xe2e0da, 0.012);
+
+// ---- 文字貼圖
+function textSprite(text, {size=1, color='#222', bg=null, circle=false}={}){
+  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+  const fs = 64; ctx.font = `bold ${fs}px "PingFang TC","Noto Sans TC",sans-serif`;
+  const w = circle ? fs*1.9 : ctx.measureText(text).width + 24, h = circle ? fs*1.9 : fs*1.35;
+  cv.width = w; cv.height = h;
+  ctx.font = `bold ${fs}px "PingFang TC","Noto Sans TC",sans-serif`;
+  if (bg){ ctx.fillStyle = bg; if (circle){ctx.beginPath();ctx.arc(w/2,h/2,w/2-4,0,7);ctx.fill();ctx.lineWidth=5;ctx.strokeStyle='#333';ctx.stroke();} else {ctx.globalAlpha=.85;ctx.fillRect(0,0,w,h);ctx.globalAlpha=1;} }
+  ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, w/2, h/2+3);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true}));
+  sp.scale.set(size*w/h, size, 1); sp.renderOrder = 10;
+  return sp;
+}
+
+// ---- 建一層
+const plan = new THREE.Group(); scene.add(plan);
+const labelGroup = new THREE.Group(), wallGroup = new THREE.Group();
+plan.add(wallGroup); plan.add(labelGroup);
+const unitMeshes = {};   // 單元 → floor meshes
+const wallMat = new THREE.MeshStandardMaterial({color:0xfafafa});
+const lowMat = new THREE.MeshStandardMaterial({color:0xe8e8e8});
+
+function mirror(r, q){
+  let [x1,y1,x2,y2] = r;
+  if (q.mx) [x1,x2] = [2*CX-x2, 2*CX-x1];
+  if (q.my) [y1,y2] = [2*CY-y2, 2*CY-y1];
+  return [x1,y1,x2,y2];
+}
+function room(r, t, unit, label){
+  const [x1,y1,x2,y2] = r, T = TYPES[t];
+  const w = (x2-x1)*S, d = (y2-y1)*S, cx = X((x1+x2)/2), cz = Z((y1+y2)/2);
+  const fm = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, d), new THREE.MeshStandardMaterial({color:T.c}));
+  fm.position.set(cx, 0.24, cz); fm.receiveShadow = true;
+  fm.userData = {unit, t}; plan.add(fm);
+  if (unit) (unitMeshes[unit] ??= []).push(fm);
+  if (T.h > 0){
+    const mat = T.h === LOW_H ? lowMat : wallMat;
+    for (const [ww,dd,ox,oz] of [[w+WT,WT,0,-d/2],[w+WT,WT,0,d/2],[WT,d,-w/2,0],[WT,d,w/2,0]]){
+      const m = new THREE.Mesh(new THREE.BoxGeometry(ww, T.h, dd), mat);
+      m.position.set(cx+ox, 0.2+T.h/2, cz+oz); m.castShadow = m.receiveShadow = true;
+      wallGroup.add(m);
+    }
+  }
+  if (label){
+    const sp = textSprite(t, {size:0.75, color:'#333'});
+    sp.position.set(cx, T.h ? Math.min(T.h,1.2)+0.6 : 0.6, cz); labelGroup.add(sp);
+  }
+  return {cx, cz};
+}
+
+// 樓板
+const slab = new THREE.Mesh(new THREE.BoxGeometry((670-20)*S+0.6, 0.2, (774-318)*S+0.6), new THREE.MeshStandardMaterial({color:0xc4c4c0}));
+slab.position.set(X(345), 0.1, Z(546)); slab.receiveShadow = slab.castShadow = true; plan.add(slab);
+
+const unitCenters = {};
+for (const q of QUADS){
+  for (const it of QUAD){
+    const unit = q[it.u];
+    const showLabel = it.t !== '客餐廳';
+    const c = room(mirror(it.r, q), it.t, unit, showLabel);
+    if (it.label) unitCenters[unit] = {...c, kind:it.u};
+  }
+  for (const r of COLS){
+    const [x1,y1,x2,y2] = mirror(r, q);
+    const m = new THREE.Mesh(new THREE.BoxGeometry((x2-x1)*S, WALL_H+0.3, (y2-y1)*S), new THREE.MeshStandardMaterial({color:0x8d8d8d}));
+    m.position.set(X((x1+x2)/2), 0.2+(WALL_H+0.3)/2, Z((y1+y2)/2)); m.castShadow = true; wallGroup.add(m);
+  }
+}
+for (const it of CORE) room(it.r, it.t, null, it.label);
+for (const [u,c] of Object.entries(unitCenters)){
+  const badge = textSprite(u, {size:1.6, bg:'#fff', circle:true});
+  badge.position.set(c.cx, 3, c.cz); labelGroup.add(badge);
+}
+const roadLabel = textSprite('30M 道路', {size:2.4, color:'#fff'});
+roadLabel.position.set(0, 1, (roadZ1+roadZ2)/2 + 4); scene.add(roadLabel);
+const nLabel = textSprite('建築線側道路', {size:1.8, color:'#fff'});
+nLabel.position.set(0, 1, Z(150)); scene.add(nLabel);
+
+// ---- 疊樓層（下方樓層以量體表示，標準層在最上）
+const stack = new THREE.Group(); scene.add(stack);
+const glassMat = new THREE.MeshStandardMaterial({color:0x9fb8c8, roughness:.3, metalness:.2});
+const bandMat = new THREE.MeshStandardMaterial({color:0xf2f0ea});
+function setFloors(n){
+  document.getElementById('fv').textContent = n;
+  stack.clear();
+  const W = (670-20)*S, D = (774-318)*S;
+  for (let i=0;i<n-1;i++){
+    const g = new THREE.Mesh(new THREE.BoxGeometry(W-0.3, FLOOR_H-0.5, D-0.3), glassMat);
+    g.position.set(X(345), i*FLOOR_H+0.5+(FLOOR_H-0.5)/2, Z(546)); g.castShadow = g.receiveShadow = true;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(W+0.6, 0.5, D+0.6), bandMat);
+    b.position.set(X(345), i*FLOOR_H+0.25, Z(546)); b.castShadow = b.receiveShadow = true;
+    stack.add(g, b);
+  }
+  plan.position.y = (n-1)*FLOOR_H;
+  controls.target.y = plan.position.y;
+}
+document.getElementById('floors').oninput = e => setFloors(+e.target.value);
+document.getElementById('labels').onchange = e => labelGroup.visible = e.target.checked;
+document.getElementById('walls').onchange = e => wallGroup.visible = e.target.checked;
+
+// ---- 視角
+function view(v){
+  const y0 = plan.position.y;
+  controls.target.set(0, y0, 0);
+  if (v==='top') camera.position.set(0, y0+48, 0.01);
+  if (v==='persp') camera.position.set(-16, y0+38, 30);
+  if (v==='road') camera.position.set(6, Math.max(1.6, y0*0.4+1.6), (roadZ1+roadZ2)/2+8);
+}
+document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => view(b.dataset.v));
+view('persp');
+
+// ---- 點選單元
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+const info = document.getElementById('info');
+let selected = null, down = null;
+renderer.domElement.addEventListener('pointerdown', e => down = [e.clientX, e.clientY]);
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX-down[0], e.clientY-down[1]) > 4) return;
+  mouse.set(e.clientX/innerWidth*2-1, -e.clientY/innerHeight*2+1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(Object.values(unitMeshes).flat())[0];
+  if (selected) unitMeshes[selected].forEach(m => m.material.emissive.setHex(0));
+  selected = hit ? hit.object.userData.unit : null;
+  if (!selected){ info.style.display='none'; return; }
+  unitMeshes[selected].forEach(m => m.material.emissive.setHex(0x553300));
+  const c = unitCenters[selected];
+  const area = unitMeshes[selected].reduce((s,m)=>s+m.geometry.parameters.width*m.geometry.parameters.depth,0);
+  info.innerHTML = `<h2>${selected}</h2>${UNIT_INFO[c.kind]}<br>${ROAD_SIDE[selected]?'面 30M 大路側（視野佳、較吵）':'建築線側（較安靜）'}<br><small>室內約 ${area.toFixed(0)} m²（約 ${(area/3.3058).toFixed(0)} 坪，依圖推估，不含公設）</small>`;
+  info.style.display = 'block';
+});
+
+// 圖例
+document.getElementById('legend').innerHTML = Object.entries(TYPES).map(([k,v]) =>
+  `<span><i style="background:#${v.c.toString(16).padStart(6,'0')}"></i>${k}</span>`).join('');
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

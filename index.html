@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>文德路都更 A・B棟 樣品屋線上體驗</title>
+<meta name="description" content="選你的戶別，走進 3D 樣品屋看格局、窗景與日照，也能參觀大廳、景觀、屋頂花園與停車場。依都市更新事業計畫書繪製的示意。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dugeng.xi-za.com/">
+<meta property="og:title" content="文德路都更 A・B棟｜3D 樣品屋線上看">
+<meta property="og:description" content="選你的戶別，走進家裡看格局、窗景與日照；大廳、景觀、屋頂花園、停車場也能逛。依計畫書繪製的示意，以正式圖說與契約為準。">
+<meta property="og:image" content="https://dugeng.xi-za.com/og.jpg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:locale" content="zh_TW">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='14' y='6' width='16' height='52' fill='%231f5f5b'/%3E%3Crect x='34' y='14' width='16' height='44' fill='%232f7d6d'/%3E%3C/svg%3E">
+<style>
+  :root{--ink:#23302f;--sub:#5d6b6a;--brand:#1f5f5b;--line:rgba(35,48,47,.12);--card:rgba(255,255,255,.94)}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#cdd8e2;color:var(--ink);font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;-webkit-user-select:none;user-select:none}
+  canvas{display:block;touch-action:none}
+  button{font:inherit;color:inherit;cursor:pointer}
+  #top{position:fixed;top:12px;left:12px;right:12px;display:flex;align-items:center;gap:12px;pointer-events:none}
+  #top>*{pointer-events:auto}
+  .brand{background:var(--card);border-radius:14px;padding:9px 14px;box-shadow:0 4px 18px rgba(0,0,0,.12);font-weight:700;font-size:15px;white-space:nowrap}
+  .brand small{font-weight:400;color:var(--sub);margin-left:6px}
+  #modes{display:flex;background:var(--card);border-radius:14px;padding:4px;box-shadow:0 4px 18px rgba(0,0,0,.12)}
+  #modes button{border:0;background:none;padding:7px 14px;border-radius:10px;font-size:14px;white-space:nowrap}
+  #modes button.on{background:var(--brand);color:#fff}
+  #reqTop{margin-left:auto;border:0;background:var(--brand);color:#fff;border-radius:14px;padding:9px 14px;box-shadow:0 4px 18px rgba(0,0,0,.12);font-size:14px;font-weight:600}
+  #reqTop+#envToggle{margin-left:0}
+  .reqOpen{width:100%;margin:8px 0 2px;border:1px dashed var(--brand);background:#f3faf8;color:var(--brand);border-radius:10px;padding:8px;font-weight:600}
+  #reqModal{position:fixed;inset:0;background:rgba(15,25,25,.38);display:none;place-items:center;z-index:40}
+  #reqModal.open{display:grid}
+  #reqModal .rbox{background:#fff;border-radius:18px;width:min(560px,94vw);max-height:88vh;overflow:auto;padding:14px 18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .rhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}.rhead b{font-size:18px}
+  .rhead button{border:0;background:none;font-size:24px;line-height:1;color:var(--sub)}
+  .rpick{display:flex;gap:6px;margin:4px 0 2px}.rpick select{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:6px 8px;font:inherit;font-size:13.5px;background:#fff}
+  .rpick button{border:1px solid var(--brand);background:var(--brand);color:#fff;border-radius:10px;padding:6px 12px;font-weight:600;white-space:nowrap}
+  .rmeta{font-size:13.5px;margin:4px 0 8px}.rmeta .link{border:0;background:none;color:var(--brand);text-decoration:underline;font-size:13px;padding:0 0 0 6px}
+  #reqList{list-style:none;margin:0;padding:0}
+  #reqList li{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #f0efeb}
+  #reqList li i{width:10px;height:10px;border-radius:50%;flex:none;background:#c9cdcc}
+  #reqList li.done i{background:#3fae6a}#reqList li.custom i{background:#e8a93a}
+  #reqList input{flex:1;min-width:0;border:1px solid transparent;border-radius:7px;padding:5px 7px;font:inherit;font-size:14px}
+  #reqList input:not([readonly]):hover,#reqList input:focus{border-color:var(--line);outline:none}
+  #reqList small{color:var(--sub);font-size:11.5px;white-space:nowrap}#reqList li.done small{color:#2f8a52}#reqList li.custom small{color:#b07a17}
+  #reqList li button{border:0;background:none;color:#b9b9b9;font-size:18px;line-height:1;padding:0 2px}#reqList li button:hover{color:#d9534f}
+  .radd{display:flex;gap:6px;margin:8px 0}.radd input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:7px 9px;font:inherit}
+  .radd button,.ract button{border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:10px;padding:7px 14px;font-weight:600}
+  .rchips{display:flex;flex-wrap:wrap;gap:5px;font-size:12px;margin:4px 0 6px;align-items:center}.rchips span{color:var(--sub)}
+  .rchips button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 9px;font-size:12px}
+  .rlab{display:block;font-size:12.5px;color:var(--sub);margin:10px 0 4px;font-weight:600}
+  #reqNote,#reqName{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:7px 9px;font:inherit;font-size:14px}
+  .rjob{border-radius:12px;padding:9px 11px;margin:6px 0 4px;font-size:13px;background:#f3f6f5;display:grid;gap:4px}
+  .rjob b{font-size:14px;display:flex;align-items:center;gap:7px}.rjob.done{background:#eef8f1}.rjob.failed{background:#fbefee}
+  .rjob img{width:100%;border-radius:8px;margin-top:4px}.rjob .primary{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:9px;font-weight:600}
+  .spin{width:12px;height:12px;border:2px solid #9bbab4;border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .rres{list-style:none;padding-left:0!important}.rres li{padding:2px 0}.rres li.ok b{color:#2f8a52}.rres li.no b{color:#c0392b}.rres small{display:block;color:var(--sub);padding-left:16px}
+  .ract{display:flex;gap:8px;margin-top:12px}.ract .primary{background:var(--brand);color:#fff}
+  #envToggle{margin-left:auto;border:0;background:var(--card);border-radius:14px;padding:9px 14px;box-shadow:0 4px 18px rgba(0,0,0,.12);font-size:14px}
+  #side{position:fixed;top:68px;left:12px;width:300px;max-height:calc(100% - 80px);overflow:auto;background:var(--card);border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:12px 14px 14px;transition:transform .25s}
+  #venueCard{display:none}
+  body[data-mode=venue] #venueCard{display:block}
+  body[data-mode=venue] #side>:not(#venueCard):not(#sheetHead){display:none}
+  #venueTabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 8px}
+  #venueTabs button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px;font-weight:600}
+  #venueTabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  #venueStops{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  #venueStops button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 9px;font-size:13px;text-align:left}
+  #venueStops button:hover{border-color:var(--brand)}
+  body[data-mode=venue] #walkHud{display:block}
+  body[data-mode=venue] #views,body[data-mode=venue] #unitSw{display:none!important}
+  #side h3{margin:4px 0 6px;font-size:13px;color:var(--sub);font-weight:600}
+  #towers{display:flex;gap:6px;margin:2px 60px 8px 0}
+  #towers button{flex:1;border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px;font-weight:600}
+  #towers button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  #finish{display:flex;align-items:center;gap:6px;margin:10px 0 0;padding:4px;background:#f1f0ec;border-radius:12px}
+  #finish span{font-size:12px;color:var(--sub);padding:0 4px 0 6px;white-space:nowrap}
+  #finish button{flex:1;border:0;background:none;border-radius:9px;padding:7px 6px;font-weight:600;font-size:14px}
+  #finish button.on{background:#fff;color:var(--brand);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  #renoBar{display:flex;align-items:center;gap:6px;margin:6px 0 0;padding:4px;background:#f1f0ec;border-radius:12px}
+  #renoBar span{font-size:12px;color:var(--sub);padding:0 4px 0 6px;flex:1}
+  #renoBar button{border:0;background:none;border-radius:9px;padding:7px 14px;font-weight:600;font-size:14px}
+  #renoBar button.on{background:#fff;color:var(--brand);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .reno .legend{display:flex;gap:12px;font-size:13px;margin:8px 0 4px}
+  .reno i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;flex:none;position:relative;top:1px}
+  .reno ul{list-style:none;margin:4px 0;padding:0;font-size:12.5px;line-height:1.5}
+  .reno li{padding:3px 0;border-top:1px solid #eee}
+  .reno li b{margin-right:6px}
+  #schemes h3{margin:12px 0 6px}
+  #schemes .chips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  #schemes .chips button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 9px;text-align:left;line-height:1.3}
+  #schemes .chips button b{display:block;font-size:14px}#schemes .chips small{color:var(--sub);font-size:11.5px}
+  #schemes .chips button.on{border-color:var(--brand);background:var(--brand);color:#fff}#schemes .chips button.on small{color:#d8ecea}
+  .ssum{font-size:13px;line-height:1.55;margin:8px 0 4px}
+  #schemes details{font-size:12.5px;line-height:1.5;margin:2px 0}
+  #schemes summary{cursor:pointer;color:var(--brand);font-weight:600;padding:3px 0}
+  #schemes ul{margin:2px 0 4px;padding-left:18px}
+  .note{font-size:12px;color:var(--sub);background:#f6f5f1;border-radius:8px;padding:7px 9px;margin:6px 0 0;line-height:1.5}
+  body[data-finish=bare] #themes{opacity:.45}
+  #mini{width:100%;height:auto;border-radius:10px;background:#f6f5f1;cursor:pointer}
+  .floor{display:flex;align-items:center;gap:8px;margin:8px 0 2px}
+  .floor h3{margin:0;flex:1}
+  .floor button{width:34px;height:30px;border:1px solid var(--line);background:#fff;border-radius:8px;font-size:18px;line-height:1}
+  #floorLabel{min-width:44px;text-align:center;font-weight:700;font-size:17px}
+  .uhead{display:flex;gap:10px;align-items:center;margin:12px 0 6px}
+  .ubadge{width:44px;height:44px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;font-size:16px;flex:none}
+  .uhead b{display:block;font-size:16px}.uhead small{color:var(--sub)}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:6px 0;font-size:13px}
+  dt{color:var(--sub)}dd{margin:0}
+  #roomList{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+  #roomList button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 9px;display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  #roomList button:hover{border-color:var(--brand)}
+  #roomList small{color:var(--sub)}
+  .actions{display:flex;gap:8px;margin-top:12px}
+  .actions button{flex:1;border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:12px;padding:10px;font-weight:600}
+  .actions .primary{background:var(--brand);color:#fff}
+  #env{position:fixed;right:12px;top:68px;width:290px;background:var(--card);border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:12px 14px;display:grid;gap:10px;font-size:13px}
+  #env label{color:var(--sub);display:block;margin-bottom:4px;font-weight:600}
+  #env .row{display:flex;align-items:center;gap:8px}
+  #env input[type=range]{flex:1;accent-color:var(--brand)}
+  #env select{width:100%;padding:6px;border-radius:8px;border:1px solid var(--line);background:#fff;font:inherit}
+  #timeLabel{font-weight:700;min-width:42px;text-align:right}
+  #sunInfo{color:var(--sub);font-size:12px}
+  #themes{display:flex;gap:6px;flex-wrap:wrap}
+  #themes button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;font-size:13px}
+  #themes button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  body:not(.env-open) #env{display:none}
+  #toast{position:fixed;top:72px;left:50%;transform:translate(-50%,-8px);background:rgba(20,30,30,.78);color:#fff;border-radius:14px;padding:9px 18px;text-align:center;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s}
+  #toast b{display:block;font-size:18px}#toast span{font-size:13px;opacity:.85}
+  #toast.show{opacity:1;transform:translate(-50%,0);animation:fade 3.2s forwards}
+  @keyframes fade{0%,75%{opacity:1}100%{opacity:0}}
+  #walkHud{display:none}
+  body[data-mode=walk] #walkHud{display:block}
+  #exitWalk{position:fixed;right:12px;bottom:58px;border:0;background:var(--card);border-radius:12px;padding:10px 14px;box-shadow:0 4px 18px rgba(0,0,0,.15);font-weight:600}
+  #map{position:fixed;right:12px;top:64px;width:230px;height:230px;background:rgba(255,255,255,.94);border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.18);overflow:hidden;z-index:5}
+  #mapc{width:100%;height:100%;display:block;cursor:pointer}
+  .mapbtns{position:absolute;top:6px;left:6px;display:flex;gap:4px}
+  .mapbtns button,#mapOpen{border:0;background:rgba(255,255,255,.92);border-radius:8px;width:28px;height:28px;padding:5px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+  .mapbtns svg,#mapOpen svg{width:100%;height:100%;fill:none;stroke:#2f3b3b;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #unitSw{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;background:rgba(31,95,91,.92);color:#fff;border-radius:16px;padding:2px;box-shadow:0 1px 6px rgba(0,0,0,.2)}
+  #unitSw button{border:0;background:none;color:#fff;font-size:20px;line-height:1;width:32px;height:28px;cursor:pointer;border-radius:14px}
+  #unitSw button:active{background:rgba(255,255,255,.2)}
+  #unitSw b{font-size:13px;min-width:30px;text-align:center}
+  body.map-big #unitSw{bottom:12px;padding:4px} body.map-big #unitSw b{font-size:16px;min-width:44px}
+  #mapOpen{position:fixed;right:12px;top:64px;width:40px;height:40px;padding:8px;border-radius:12px;display:none;z-index:5}
+  body.map-closed #map{display:none} body.map-closed #mapOpen{display:block}
+  body.map-big #map{right:50%;top:50%;transform:translate(50%,-50%);width:min(84vw,78vh);height:min(84vw,78vh);z-index:20}
+  body.map-big #walkHud::before{content:'';position:fixed;inset:0;background:rgba(10,20,20,.35);z-index:19}
+  #views{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);display:flex;gap:6px;align-items:center;background:var(--card);border-radius:12px;padding:6px 8px;box-shadow:0 4px 18px rgba(0,0,0,.15);font-size:13px}
+  #views>span{color:#667;padding:0 4px;font-weight:600;white-space:nowrap}
+  #views button{white-space:nowrap}
+  #views button{border:0;background:#eef3f1;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer}
+  #views button:hover{background:#dbe9e4}
+  #views button.off{opacity:.4}
+  #zoomTag{position:fixed;right:12px;bottom:104px;border:0;background:rgba(20,30,30,.6);color:#fff;border-radius:10px;padding:6px 10px;font-size:12px;display:none;cursor:pointer}
+  #zoomTag.on{display:block}
+  #help{position:fixed;left:50%;bottom:58px;transform:translateX(-50%);background:rgba(20,30,30,.55);color:#fff;font-size:12px;border-radius:10px;padding:6px 12px;white-space:nowrap}
+  #joy{position:fixed;left:28px;bottom:70px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.6);display:none;touch-action:none}
+  #knob{position:absolute;left:36px;top:36px;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+  @media (pointer:coarse){ body[data-mode=walk] #joy,body[data-mode=venue] #joy{display:block} #help .kb{display:none} }
+  @media (pointer:fine){ #help .tc{display:none} }
+  body[data-mode=walk] #side{width:230px}
+  body[data-mode=walk] #side .hide-walk{display:none}
+  #helpBtn{border:0;background:var(--card);border-radius:14px;padding:9px 13px;box-shadow:0 4px 18px rgba(0,0,0,.12);font-size:14px;font-weight:700;color:var(--brand)}
+  #guide{position:fixed;inset:0;background:rgba(15,25,25,.45);display:none;place-items:center;z-index:50;padding:12px}
+  #guide.open{display:grid}
+  #guide .gbox{background:#fff;border-radius:20px;width:min(520px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:20px 20px 16px;box-shadow:0 14px 44px rgba(0,0,0,.28)}
+  #guide h2{margin:0;font-size:22px}.gsub{margin:4px 0 12px;color:var(--sub);font-size:15px}
+  .gsteps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+  .gsteps li{background:#f3f6f5;border-radius:14px;padding:11px 13px;font-size:15px;line-height:1.5}
+  .gsteps li>b{display:block;font-size:17px;color:var(--brand);margin-bottom:2px}.gsteps li>span{color:#3d4847}
+  .gpick{display:grid;gap:8px;margin-top:6px}
+  .grow{display:flex;align-items:center;gap:10px}.grow>span{width:38px;color:var(--sub);font-size:14px;flex:none}
+  .grow>div{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+  #gTower button,#gUnit button{min-width:52px;height:44px;border:1px solid var(--line);background:#fff;border-radius:12px;font-size:17px;font-weight:700}
+  #gTower button.on,#gUnit button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .gfloor{align-items:center;gap:12px!important}.gfloor button{width:48px;height:44px;border:1px solid var(--line);background:#fff;border-radius:12px;font-size:22px}
+  .gfloor b{font-size:20px;min-width:56px;text-align:center}
+  #gInfo{margin:2px 0 0;font-size:14px;color:#3d4847}
+  .gnote{margin:12px 0 8px;background:#fff7e6;border:1px solid #f0d9a8;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.6;color:#5a4a26}
+  .gnote b{display:block;color:#a06a00;margin-bottom:2px}
+  .gbig{display:flex;align-items:center;gap:8px;font-size:15px;margin:6px 0 10px}.gbig input{width:20px;height:20px}
+  .gact{display:flex;gap:8px}.gact button{flex:1;height:50px;border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:14px;font-size:16px;font-weight:700}
+  .gact .primary{background:var(--brand);color:#fff}
+  /* 大字模式：面板、提示、對話框整體放大 */
+  body.bigtext #side,body.bigtext #toast,body.bigtext #reqModal .rbox,body.bigtext #env,body.bigtext #views,body.bigtext #exitWalk,body.bigtext #help{zoom:1.22}
+  body.bigtext #top{zoom:1.12}
+  #disclaimer{position:fixed;left:0;right:0;bottom:0;padding:7px 12px;font-size:11.5px;color:#3d4847;background:rgba(255,255,255,.78);text-align:center}
+  #sheetHead{display:none}
+  #loading{position:fixed;inset:0;background:#eef1f3;display:grid;place-items:center;z-index:10;transition:opacity .6s}
+  #loading.done{opacity:0;pointer-events:none}
+  #loading div{text-align:center;color:var(--sub)}
+  #loading b{display:block;font-size:20px;color:var(--ink);margin-bottom:6px}
+  @media (max-width:430px){ .brand{display:none} }
+  @media (max-width:760px){
+    #top{gap:6px;top:8px;left:8px;right:8px}
+    .brand small{display:none}.brand{padding:8px 10px;font-size:14px}
+    #modes button{padding:6px 9px;font-size:13px}
+    #envToggle{padding:8px 11px;font-size:15px}
+    #envToggle .lbl{display:none}
+    #reqTop{padding:8px 11px;font-size:14px}#reqTop .lbl{display:none}
+    #helpBtn{padding:8px 11px}#helpBtn .lbl{display:none}
+    body.bigtext #side{zoom:1.12}
+    body.bigtext #top,body.bigtext #views,body.bigtext #exitWalk,body.bigtext #env{zoom:1}   /* 手機畫面窄，頁首與漫遊按鈕不放大，避免擠在一起 */
+    /* 手機：底部抽屜。標題列（把手＋目前在看什麼＋箭頭）整條可點、可上滑展開／下拉收合 */
+    #side{top:auto;bottom:34px;left:8px;right:8px;width:auto!important;max-height:58%;border-radius:18px 18px 12px 12px;padding-top:0;overscroll-behavior:contain}
+    #sheetHead{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:3;order:-1!important;margin:0 -14px 6px;padding:16px 12px 10px 16px;background:var(--card);border-radius:18px 18px 0 0;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+    #sheetHead .grab{position:absolute;top:6px;left:50%;width:38px;height:4px;border-radius:2px;background:#cfd4d3;transform:translateX(-50%)}
+    #sheetTitle{flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #sheetTitle small{font-weight:400;color:var(--sub);margin-left:6px;font-size:13px}
+    #sideToggle{flex:none;width:36px;height:36px;border:0;border-radius:50%;background:#eef3f2;display:grid;place-items:center;padding:0}
+    #sideToggle svg{width:20px;height:20px;fill:none;stroke:var(--brand);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;transform:rotate(180deg);transition:transform .25s}
+    body.side-closed #sideToggle svg{transform:none}
+    body.side-closed #side{overflow:hidden}
+    body.side-closed #side>:not(#sheetHead){visibility:hidden}
+    #venueCard>h3:first-child{display:none}
+    #towers{margin:0 0 8px}
+    #mini{max-height:24vh;width:auto;max-width:100%;display:block;margin:0 auto}
+    body.side-closed #side{transform:translateY(calc(100% - 62px))}
+    #env{left:8px;right:8px;width:auto;top:56px}
+    #toast{top:58px}
+    body[data-mode=walk] #side,body[data-mode=venue] #side{max-height:40%}
+    body[data-mode=walk] #side .hide-walk-m{display:none}
+    /* 客變方案排在最上面（緊接 A／B 棟），漫遊時只留方案按鈕 */
+    #side{display:flex;flex-direction:column}
+    #side>*{order:2;flex:none}
+    #towers{order:0}
+    #schemes{order:1}
+    #schemes h3{margin:4px 0 6px}
+    /* 方案：一排左右滑的膠囊，不折行 */
+    #schemes .chips{display:flex;overflow-x:auto;gap:6px;margin:0 -14px;padding:2px 14px 6px;scroll-snap-type:x proximity;scrollbar-width:none}
+    #schemes .chips::-webkit-scrollbar{display:none}
+    #schemes .chips button{flex:0 0 auto;max-width:168px;scroll-snap-align:start;border-radius:12px;padding:7px 12px}
+    #schemes .chips button b{font-size:14px;white-space:nowrap}
+    #schemes .chips small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    body[data-mode=walk] #schemes .ssum,body[data-mode=walk] #schemes details{display:none}
+    #exitWalk{bottom:auto;top:56px;right:8px}
+    #help{display:none}
+    #views{bottom:auto;top:100px;font-size:12px;padding:4px 6px}
+    #map{top:146px;right:8px;width:172px;height:172px} #mapOpen{top:146px;right:8px}
+    #views button{padding:5px 7px;font-size:12px}
+    #zoomTag{bottom:auto;top:56px;right:auto;left:8px}
+    #joy{bottom:44px;left:20px}
+    body[data-mode=walk]:not(.side-closed) #joy,body[data-mode=venue]:not(.side-closed) #joy{bottom:calc(40% + 44px)}
+    body.side-closed #joy{bottom:110px}
+    #disclaimer{font-size:10.5px;padding:6px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+    #disclaimer.open{white-space:normal;z-index:30}
+  }
+</style>
+</head>
+<body data-mode="overview">
+<div id="loading"><div><b>文德路都更 樣品屋</b>正在搭建模型…</div></div>
+<header id="top">
+  <div class="brand">文德路都更 樣品屋<small>A・B棟線上體驗</small></div>
+  <nav id="modes">
+    <button data-mode="overview">外觀</button>
+    <button data-mode="doll">樣品屋</button>
+    <button data-mode="walk">實境漫遊</button>
+    <button data-mode="venue">公設</button>
+  </nav>
+  <button id="reqTop" data-open-req>客變<span class="lbl">需求</span></button>
+  <button id="helpBtn" title="使用說明">？<span class="lbl"> 說明</span></button>
+  <button id="envToggle">☀<span class="lbl"> 日照・裝潢</span></button>
+</header>
+
+<aside id="side">
+  <div id="sheetHead"><span class="grab"></span><b id="sheetTitle"></b><button id="sideToggle" aria-label="展開或收合面板"><svg viewBox="0 0 20 20"><path d="M5 12.5l5-5 5 5"/></svg></button></div>
+  <section id="venueCard">
+    <h3>公設參觀</h3>
+    <div id="venueTabs"><button data-venue="lobby">1F 大廳與景觀</button><button data-venue="roof">A 棟屋頂花園</button><button data-venue="b1">B1 機車層</button><button data-venue="b2">B2 汽車層</button></div>
+    <p id="venueDesc" class="ssum"></p>
+    <h3>走到</h3>
+    <div id="venueStops"></div>
+    <p class="note">依計畫書圖 9-19 一層平面、9-21 二層挑空、9-49 屋頂景觀與建材表示意，位置是量圖估算，實際裝修以建商為準。<br>本案公設：1F 門廳大廳（二樓挑空）、鏡面水池、管理委員會使用空間（兩棟各一）、防災中心、屋頂花園、地下 1～4 樓停車場（B3、B4 同 B2）。3F 兩棟之間的露台看起來屬於 3 樓住戶，未列入。</p>
+  </section>
+  <div id="towers"><button data-tower="A">A棟</button><button data-tower="B">B棟</button></div>
+  <h3>選擇戶別（點平面圖）</h3>
+  <canvas id="mini" width="560" height="394"></canvas>
+  <div class="floor hide-walk-m"><h3>樓層</h3><button id="fdn">−</button><span id="floorLabel">8F</span><button id="fup">＋</button></div>
+  <div id="finish"><span>交屋狀態</span><button data-finish="bare">毛胚屋</button><button data-finish="sample">樣品屋</button></div>
+  <div id="renoBar"><span>客變範圍</span><button id="renoBtn">顯示</button></div>
+  <section id="schemes"></section>
+  <section id="unitCard" class="hide-walk-m"></section>
+  <section id="roomList"></section>
+  <div class="actions hide-walk">
+    <button id="enterWalk" class="primary">進入漫遊</button>
+    <button id="tour">自動導覽</button>
+  </div>
+</aside>
+
+<div id="env">
+  <div><label>時間</label><div class="row"><input type="range" id="time" min="5" max="20" step="0.25"><span id="timeLabel">10:00</span></div><div id="sunInfo"></div></div>
+  <div><label>季節</label><select id="season"><option value="summer">夏至（6月）</option><option value="equinox">春分／秋分（3、9月）</option><option value="winter">冬至（12月）</option></select></div>
+  <div><label>北方</label><select id="north"><option value="9">依計畫書指北針（上方偏東約 9°）</option><option value="0">正上方</option><option value="90">平面圖右側</option><option value="180">平面圖下方</option><option value="270">平面圖左側</option></select></div>
+  <div><label>裝潢風格</label><div id="themes"></div></div>
+</div>
+
+<div id="reqModal"><div class="rbox">
+  <div class="rhead"><b>客變需求單</b><button id="reqClose" title="關閉">×</button></div>
+  <div id="reqBody"></div>
+</div></div>
+<div id="toast"></div>
+<div id="walkHud">
+  <button id="exitWalk">離開漫遊</button>
+  <div id="map"><canvas id="mapc"></canvas>
+    <div class="mapbtns"><button id="mapZoom" title="放大／縮小"><svg viewBox="0 0 20 20"><path d="M12 3h5v5M8 17H3v-5M17 3l-6 6M3 17l6-6"/></svg></button><button id="mapClose" title="關閉小地圖"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button></div>
+    <div id="unitSw"><button id="unitPrev" title="上一戶">‹</button><b id="unitName">A1</b><button id="unitNext" title="下一戶">›</button></div>
+  </div>
+  <button id="mapOpen" title="打開小地圖"><svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z M9 4v14 M15 6v14"/></svg></button>
+  <div id="views"><span>看景</span></div>
+  <button id="zoomTag" title="回到正常視角"></button>
+  <div id="help"><span class="kb">W A S D 走動・Q E／←→ 轉向・拖曳轉頭・點地面走過去・滾輪望遠・Esc 離開</span><span class="tc">左下搖桿走動・拖曳轉頭・點地面走過去・雙指望遠</span></div>
+  <div id="joy"><div id="knob"></div></div>
+</div>
+<div id="guide"><div class="gbox">
+  <h2>文德路都更 3D 樣品屋</h2>
+  <p class="gsub">三個步驟，看看你分到的房子</p>
+  <ol class="gsteps">
+    <li><b>1　選你的戶</b>
+      <div class="gpick">
+        <div class="grow"><span>棟別</span><div id="gTower"></div></div>
+        <div class="grow"><span>戶別</span><div id="gUnit"></div></div>
+        <div class="grow"><span>樓層</span><div class="gfloor"><button id="gFdn">−</button><b id="gFloor">10F</b><button id="gFup">＋</button></div></div>
+        <p id="gInfo"></p>
+      </div>
+    </li>
+    <li><b>2　走進去看看</b><span>手指拖曳轉頭、左下搖桿走路，或直接點地面走過去</span></li>
+    <li><b>3　看窗外風景</b><span>進屋後點上方「看景」，會走到看得到 101、摩天輪的窗邊</span></li>
+  </ol>
+  <div class="gnote"><b>請注意</b>這是依「都市更新事業計畫書（送件版）」繪製的示意，不是正式交屋標準。隔間、裝修、家具、客變方案與公設裝潢都是參考；周邊建物高度多為估計。實際內容以建商核定圖說及買賣（分配）契約為準。</div>
+  <label class="gbig"><input type="checkbox" id="gBigText"> 大字模式（字和按鈕放大）</label>
+  <div class="gact"><button id="gLook">先逛逛，自己看</button><button id="gGo" class="primary">我了解，走進我家</button></div>
+</div></div>
+<div id="disclaimer">本體驗依都更事業計畫書（送件版）圖說繪製，室內隔間、家具、裝修皆為示意；周邊建物輪廓、道路與地形取自開放圖資，多數建物高度為估計，面積以計畫書為準，實際以核定圖說及契約為準。</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.169.0/examples/jsm/"}}
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

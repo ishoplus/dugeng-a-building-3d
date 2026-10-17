@@ -1,0 +1,12 @@
+site/
+node_modules
+data/
+logs/
+# 原始圖資（scripts/fetch_geo.py 可重新下載），烘焙結果 js/geo-data.json 有進版控
+scripts/geo_raw/
+__pycache__/
+*.pyc
+.DS_Store
+# 計畫書圖面（版權屬實施者與建築師）只留本機參考，不進版控
+plan.jpg
+scripts/site-overlay-9-47.png

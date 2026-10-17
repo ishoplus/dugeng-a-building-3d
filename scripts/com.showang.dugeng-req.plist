@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.showang.dugeng-req</string>
+  <!-- 客變需求單工作機：每分鐘看有沒有送出的需求單，交給 Claude Code 設計並自動驗收（scripts/req_worker.py） -->
+  <key>ProgramArguments</key><array>
+    <string>/Library/Frameworks/Python.framework/Versions/3.12/bin/python3</string>
+    <string>/Users/showang/projects/dugeng-a-building-3d/scripts/req_worker.py</string>
+  </array>
+  <key>StartInterval</key><integer>60</integer>
+  <key>RunAtLoad</key><true/>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>/Users/showang/.nvm/versions/node/v22.22.0/bin:/Library/Frameworks/Python.framework/Versions/3.12/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key><string>/Users/showang</string>
+    <key>LANG</key><string>zh_TW.UTF-8</string>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/showang/projects/dugeng-a-building-3d/logs/req_worker.out</string>
+  <key>StandardErrorPath</key><string>/Users/showang/projects/dugeng-a-building-3d/logs/req_worker.err</string>
+</dict></plist>
