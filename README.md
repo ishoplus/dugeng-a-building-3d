@@ -151,7 +151,7 @@ python3 -m http.server 17088
 隔間依計畫書公分尺寸以公尺描繪（內部格子 5cm）；模型室內面積 A1 81.0㎡／A2 53.4㎡，對照計畫書 80.43／54.27㎡。
 
 ## Railway（2026-10-17 起）
-- 專案 dugeng／服務 dugeng／production；push main → GitHub Actions（`.github/workflows/deploy.yml`，secret `RAILWAY_TOKEN`＝Railway 專案權杖）→ `railway up --ci`；不要從本機 `railway up`
+- 專案 dugeng／服務 dugeng／production；Railway 直接連 GitHub repo，push main 自動部署；不要從本機 `railway up`
 - `Dockerfile`：Python 3.12 slim，建置時把 js/ 放進 `site/v<時間戳>/`；`HOST=0.0.0.0`、Railway 注入 `PORT`
 - 需求單與設計結果在 volume `/data`（`DUGENG_DATA=/data/requirements`、`DUGENG_CUSTOM=/data/custom`），重新部署不會清掉；要動檔案用 `railway ssh <指令>`
 - 環境變數 `DUGENG_WORKER_TOKEN`（同一組也在 Mac Keychain `dugeng-worker-token`）：Mac 上的 Claude Code 工作機設 `DUGENG_SERVER` 後走 `/api/worker/*` 拿單、回報、交結果
