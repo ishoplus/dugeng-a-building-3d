@@ -25,7 +25,9 @@ col $RAW/curly_teddy_natural_nor_gl.jpg $OUT/tex/teddy_nor.webp 90
 col $RAW/plastered_wall_04_nor_gl.jpg $OUT/tex/plaster_nor.webp 85
 gray $RAW/long_white_tiles_Diffuse.jpg $OUT/tex/subway_gray.webp
 col $RAW/long_white_tiles_nor_gl.jpg $OUT/tex/subway_nor.webp 90
-for d in modern_ceiling_lamp_01 modern_wooden_cabinet potted_plant_02 modern_coffee_table_01 desk_lamp_arm_01; do
+gray $RAW/large_square_pattern_01_Diffuse.jpg $OUT/tex/baltile_gray.webp
+col $RAW/large_square_pattern_01_nor_gl.jpg $OUT/tex/baltile_nor.webp 90
+for d in modern_ceiling_lamp_01 modern_wooden_cabinet potted_plant_02 modern_coffee_table_01 desk_lamp_arm_01 outdoor_table_chair_set_01 potted_plant_04; do
   $GT optimize $RAW/$d/*.gltf $OUT/models/$d.glb --compress quantize --texture-compress webp --texture-size 1024 --simplify false >/dev/null
 done
 rm -rf "$tmp"

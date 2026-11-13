@@ -249,18 +249,20 @@ export async function loadRealTextures(M, renderer, getState) {
     if (srgb) t.colorSpace = THREE.SRGBColorSpace;
     return t;
   };
-  const [floor, floorN, oak, oakN, linen, linenN, teddy, teddyN, plasterN, subway, subwayN] = await Promise.all([
+  const [floor, floorN, oak, oakN, linen, linenN, teddy, teddyN, plasterN, subway, subwayN, bal, balN] = await Promise.all([
     tex('floor_col', 1.7, true), tex('floor_nor', 1.7),
     tex('oak_gray', 0.9, true), tex('oak_nor', 0.9),
     tex('linen_gray', 0.45, true), tex('linen_nor', 0.45),
     tex('teddy_gray', 0.4, true), tex('teddy_nor', 0.4),
     tex('plaster_nor', 3.2), tex('subway_gray', 1.27, true), tex('subway_nor', 1.27),
+    tex('baltile_gray', 1.5, true), tex('baltile_nor', 1.5),                   // 陽台：灰色方磚（原圖 3m 見方，縮成約 37cm 一塊）
   ]);
   REAL = { floor, floorN, subway, subwayN };
   for (const k of ['fabric', 'fabric2', 'linen']) Object.assign(M[k], { map: linen, bumpMap: null, normalMap: linenN, normalScale: new THREE.Vector2(0.9, 0.9) });
   Object.assign(M.rug, { map: teddy, bumpMap: null, normalMap: teddyN, normalScale: new THREE.Vector2(1, 1) });
   Object.assign(M.wood, { map: oak, bumpMap: null, normalMap: oakN, normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.55 });
   Object.assign(M.paint, { normalMap: plasterN, normalScale: new THREE.Vector2(0.12, 0.12) });
+  Object.assign(M.floorBal, { map: bal, normalMap: balN, roughness: 0.85 }); M.floorBal.color.set(0xcdc8bf); M.floorBal.needsUpdate = true;
   for (const k of ['fabric', 'fabric2', 'linen', 'rug', 'wood', 'paint']) M[k].needsUpdate = true;
   const [fin, th] = getState();
   applyFinish(M, fin, th);

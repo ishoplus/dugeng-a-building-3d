@@ -431,7 +431,8 @@ const ITEMS = {
       k.box(M.wood, 0.04, 0.4, 0.4, sx * 0.75, 0.48, 0);
       k.box(M.accent, 0.3, 0.44, 0.3, sx * 0.55, 0, 0).scale.set(0.1, 1, 0.1);
     }
-    return g;
+    swapModel(g, 'bistro', [1.6, 0.85, 0.7]);
+    return addModel(g, 'succulent', [0.15, 0.24, 0.15], [0.05, 0.72, 0.05, 0.8]);   // 桌上一小盆多肉（桌面高度依模型）
   },
   acUnit(M) {
     // 冷氣室外機：正面（+z）是出風網罩
