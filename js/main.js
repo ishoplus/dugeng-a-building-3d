@@ -238,7 +238,21 @@ walker.onRoom = sp => {
   if (sp.unit && sp.unit !== state.unit) selectUnit(sp.unit, { keepCamera: true });
   else placeWinLights();
   drawMini();
+  requestAnimationFrame(() => captureMirror(sp));
 };
+// 鏡子倒影：每進一個房間，在房間中央眼睛高度拍一次環景（只拍一次，不是每格畫面），鏡面拿它當反射；手機不做
+const mirrorRT = HQ ? new THREE.WebGLCubeRenderTarget(512, { type: THREE.HalfFloatType }) : null;
+const mirrorCam = HQ ? new THREE.CubeCamera(0.05, 40, mirrorRT) : null;
+function captureMirror(sp) {
+  if (!mirrorCam || sp.cx === undefined) return;
+  floorGroup.updateMatrixWorld(true);
+  mirrorCam.position.copy(floorGroup.localToWorld(new THREE.Vector3(toX(sp.cx), 1.5, toZ(sp.cy))));
+  const hide = [spotGroup, hoverRing, destMark].filter(o => o.visible); hide.forEach(o => o.visible = false);
+  M.mirror.envMap = scene.environment;            // 拍的時候鏡子不能讀自己正在寫的貼圖
+  mirrorCam.update(renderer, scene);
+  hide.forEach(o => o.visible = true);
+  M.mirror.envMap = mirrorRT.texture; M.mirror.envMapIntensity = 1;
+}
 
 // ---------- 公設參觀（js/venue.js）：各自一個漫遊者，輸入與鏡頭共用實境漫遊那一套
 const venues = buildVenues(M, { roofY: floorY(FLOORS + 1), b1Y: BASE - 4.5, b2Y: BASE - 7.5 });

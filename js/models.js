@@ -10,6 +10,7 @@ const DEFS = {
   coffeeTable: { file: 'modern_coffee_table_01.glb', rotY: Math.PI / 2, fit: 'box' },
   tvUnit: { file: 'modern_wooden_cabinet.glb', fit: 'box' },
   plant: { file: 'potted_plant_02.glb', fit: 'height', rotY: 0.6 },
+  deskLamp: { file: 'desk_lamp_arm_01.glb', fit: 'height', rotY: Math.PI },
   // 原模型是直徑 43cm 的灰色金屬球罩：縮到 32cm、改白色烤漆，燈泡玻璃換成場景的燈材質（跟著日夜發光）
   pendant: {
     file: 'modern_ceiling_lamp_01.glb', fit: 'top', scale: 0.75,

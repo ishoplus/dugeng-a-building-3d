@@ -334,9 +334,13 @@ export function buildFloor(plan, M) {
     // 床頭掛畫碰到窗就不掛
     const art = []; g.traverse(o => { if (o.userData.art) art.push(o); });
     if (art.some(o => { const b = new THREE.Box3().setFromObject(o); return winBoxes.some(w => w.intersectsBox(b)); })) art.forEach(o => o.removeFromParent());
-    if (g.userData.model) {                    // 會換成真實模型的零件另外一批，模型載好就把這批藏起來（載不到就照舊顯示）
+    if (g.userData.models) {                   // 會換成真實模型的零件另外一批，模型載好就把這批藏起來（載不到就照舊顯示）
       furn.object(g, o => !o.userData.swap); swap.object(g, o => o.userData.swap);
-      models.push({ ...g.userData.model, unit: f.unit, matrix: g.matrixWorld.clone() });
+      for (const m of g.userData.models) {
+        const mat = g.matrixWorld.clone();
+        if (m.at) mat.multiply(new THREE.Matrix4().compose(new THREE.Vector3(m.at[0], m.at[1], m.at[2]), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), m.at[3] || 0), new THREE.Vector3(1, 1, 1)));
+        models.push({ name: m.name, size: m.size, unit: f.unit, matrix: mat });
+      }
     } else furn.object(g);
     furnAll.push(new THREE.Box3().setFromObject(g)); furnNoBlock.push(!!g.userData.noBlock);
     if (!g.userData.noBlock && f.f !== 'plant') { const b = new THREE.Box3().setFromObject(g); if (b.max.y > 0.45) furnBoxes.push(b); }   // 盆栽可以站在窗簾前

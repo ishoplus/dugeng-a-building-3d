@@ -18,10 +18,39 @@ function rbox(w, h, d, soft, meter = false) {
   }
   return geoCache.get(key);
 }
+// 被子：床面 w×l 的網格往外延伸 hang（兩側與床尾），延伸部分往下垂；表面加幾道低頻皺褶
+const duvetCache = new Map();
+function duvetGeo(w, l, hang = 0.24, seed = 3) {
+  const key = [w, l, hang, seed].map(v => v.toFixed(3)).join();
+  if (duvetCache.has(key)) return duvetCache.get(key);
+  const W = w + hang * 2, Lh = l + hang, geo = new THREE.PlaneGeometry(W, Lh, Math.round(W / 0.03), Math.round(Lh / 0.03));
+  geo.rotateX(-Math.PI / 2); geo.translate(0, 0, hang / 2);                    // 床頭端（-z）不垂
+  const p = geo.attributes.position, uv = geo.attributes.uv;
+  const waves = Array.from({ length: 6 }, (_, i) => [Math.sin(seed * 7 + i * 2.1) * 9, Math.cos(seed * 3 + i * 1.7) * 9, 0.004 + 0.006 * Math.abs(Math.sin(seed + i)), i * 1.3]);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i);
+    const ox = Math.max(0, Math.abs(x) - w / 2), oz = Math.max(0, z - l / 2), or = Math.hypot(ox, oz), o = Math.min(hang, or);
+    const k = o / hang, drop = o > 0 ? -Math.sin(k * Math.PI / 2) * hang * 1.05 : 0;   // 過了床緣就往下彎
+    const out = 0.03 * Math.sin(k * Math.PI / 2);                                      // 垂下的布最多只離床緣 3cm（角落也一樣，不往外斜凸）
+    let y = drop + (o > 0 ? 0 : 0.015 * (1 - Math.pow(Math.max(Math.abs(x) / (w / 2), z / (l / 2)), 8)));   // 中間微鼓
+    for (const [a, b, amp, ph] of waves) y += amp * Math.sin(a * x + b * z + ph) * (1 - k * 0.5);
+    const nx = ox > 0 ? Math.sign(x) * (w / 2 + out * ox / or) : x, nz = oz > 0 ? l / 2 + out * oz / or : z;
+    p.setXYZ(i, nx, y, nz); uv.setXY(i, uv.getX(i) * W, uv.getY(i) * Lh);
+  }
+  geo.computeVertexNormals();
+  duvetCache.set(key, geo);
+  return geo;
+}
+
 // 換成真實模型（js/models.js）的家具：被取代的零件標 swap，模型載入後隱藏；size＝本地外框 [寬, 高, 深]
 function swapModel(g, name, size, keep = () => false) {
-  g.userData.model = { name, size };
+  (g.userData.models ??= []).push({ name, size });
   g.traverse(o => { if (o.isMesh && !keep(o)) o.userData.swap = true; });
+  return g;
+}
+// 額外擺一件模型（不取代零件）；at＝本地位置 [x, y, z, 轉角]
+function addModel(g, name, size, at) {
+  (g.userData.models ??= []).push({ name, size, at });
   return g;
 }
 // 碗形面盆：外徑 20cm、高 12cm，內凹（Lathe 旋轉出來，內外兩層）
@@ -84,9 +113,12 @@ const ITEMS = {
     const g = new THREE.Group(), k = kit(g), h0 = -l / 2 + 0.04, L = l - 0.12, zc = h0 + 0.08 + L / 2;
     k.box(M.wood, w + 0.06, 0.26, L, 0, 0.04, zc);                               // 床架
     k.box(M.linen, w - 0.04, 0.22, L - 0.06, 0, 0.3, zc);                        // 床墊
-    k.box(M.fabric2, w + 0.04, 0.1, L * 0.66, 0, 0.47, zc + L * 0.17);           // 被子（兩側垂下一點）
-    k.box(M.fabric2, w - 0.02, 0.05, 0.3, 0, 0.55, zc - L * 0.15).rotation.x = 0.06;
-    k.box(M.fabric, w + 0.06, 0.03, 0.5, 0, 0.56, zc + L * 0.32);                // 床尾毯
+    { const dl = L * 0.7, o = new THREE.Mesh(duvetGeo(w, dl), M.fabric2);        // 被子：蓋住床尾 70%，兩側與床尾垂下、表面有皺褶
+      o.position.set(0, 0.52, zc + L / 2 - dl / 2); g.add(o);
+      const t = new THREE.Mesh(duvetGeo(w, 0.32, 0.03, 7), M.fabric2);            // 床頭端反摺的一段
+      t.position.set(0, 0.56, zc + L / 2 - dl + 0.12); g.add(t); }
+    { const o = new THREE.Mesh(duvetGeo(w + 0.02, 0.45, 0.2, 11), M.fabric);     // 床尾毯：疊在被子上、兩側垂下
+      o.position.set(0, 0.565, zc + L / 2 - 0.45); g.add(o); }
     const n = Math.max(2, Math.round(w / 0.4)), pw = (w + 0.1) / n;              // 繃布床頭板（直條）
     for (let i = 0; i < n; i++) k.box(M.fabric, pw - 0.01, 1.05, 0.09, -w / 2 - 0.05 + pw * (i + 0.5), 0, h0 + 0.045);
     const pn = w > 1.2 ? 2 : 1;
@@ -129,12 +161,17 @@ const ITEMS = {
     for (const sx of [-1, 1]) k.box(M.accent, 0.03, 0.72, 0.55, sx * (w / 2 - 0.04), 0, 0);
     k.box(M.screen, 0.55, 0.32, 0.02, 0, 0.9, -0.2);
     k.box(M.accent, 0.04, 0.16, 0.04, 0, 0.75, -0.2);
-    // 椅子
-    k.box(M.fabric, 0.45, 0.06, 0.45, 0, 0.44, 0.48);
-    k.box(M.fabric, 0.45, 0.45, 0.05, 0, 0.5, 0.7);
-    k.cyl(M.accent, 0.02, 0.02, 0.42, 0, 0.02, 0.48, 8);
-    k.cyl(M.accent, 0.25, 0.25, 0.03, 0, 0, 0.48, 16);
-    return g;
+    k.box(M.accent, 0.42, 0.012, 0.13, 0, 0.75, 0.05);                         // 鍵盤
+    for (let i = 0; i < 3; i++) k.box([M.book1, M.book3, M.book5][i], 0.22, 0.03, 0.3, w / 2 - 0.2, 0.75 + i * 0.03, 0.02).rotation.y = (i - 1) * 0.12;   // 一疊書
+    // 辦公椅：五爪腳＋氣壓桿＋軟墊座椅、微後仰的網背、扶手
+    const cz = 0.5;
+    for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5, o = k.box(M.accent, 0.3, 0.03, 0.04, Math.cos(a) * 0.15, 0.04, cz + Math.sin(a) * 0.15); o.rotation.y = -a; k.ball(M.black, 0.025, Math.cos(a) * 0.29, 0.025, cz + Math.sin(a) * 0.29); }
+    k.cyl(M.steel, 0.022, 0.022, 0.36, 0, 0.06, cz, 10);
+    k.box(M.fabric, 0.48, 0.08, 0.46, 0, 0.42, cz);
+    const back = k.box(M.black, 0.44, 0.5, 0.03, 0, 0.56, cz + 0.25); back.rotation.x = -0.12;
+    k.box(M.accent, 0.04, 0.04, 0.12, 0, 0.42, cz + 0.22);
+    for (const sx of [-1, 1]) { k.box(M.accent, 0.025, 0.2, 0.025, sx * 0.24, 0.48, cz + 0.05); k.box(M.black, 0.05, 0.025, 0.24, sx * 0.24, 0.68, cz + 0.03); }
+    return addModel(g, 'deskLamp', [0.3, 0.55, 0.3], [-w / 2 + 0.18, 0.735, -0.15, 0.5]);
   },
   sofa(M, len = 2.1) {
     const g = new THREE.Group(), k = kit(g);
@@ -563,7 +600,7 @@ const ITEMS = {
     k.box(M.cabinet, w, H, 0.02, 0, 0, -D / 2 + 0.01);
     for (const sx of [-1, 1]) k.box(M.cabinet, 0.025, H, D, sx * (w / 2 - 0.0125), 0, 0);
     for (let i = 1; i < cols; i++) k.box(M.cabinet, 0.02, H, D, -w / 2 + (w / cols) * i, 0, 0);
-    const bk = [M.accent, M.linen, M.wood, M.fabric, M.fabric2, M.art1, M.art2];
+    const bk = [M.book1, M.book2, M.book3, M.book4, M.book5, M.book6, M.book2, M.book4];
     for (let r = 0; r <= n; r++) k.box(M.cabinet, w, 0.025, D, 0, r * (H - 0.025) / n, 0);
     for (let r = 0; r < n; r++) for (let c = 0; c < cols; c++) {
       const x0 = -w / 2 + (w / cols) * c + 0.03, x1 = x0 + w / cols - 0.06, y = r * (H - 0.025) / n + 0.025, seed = r * 7 + c * 3;

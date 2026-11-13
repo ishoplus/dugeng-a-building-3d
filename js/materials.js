@@ -135,6 +135,14 @@ export function paintingTexture(seed, palette) {
   g.globalAlpha = 1;
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+export function quartzTexture(seed = 29) {
+  // 石英石檯面：白底＋細碎灰點＋幾顆大一點的晶粒（貼圖 60cm 見方，家具 UV 以公尺計）
+  const [c, g] = cv(512, 512), r = rng(seed);
+  g.fillStyle = '#f1efeb'; g.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 26000; i++) { const v = 150 + r() * 70 | 0; g.fillStyle = `rgba(${v},${v - 4},${v - 8},${0.1 + r() * 0.25})`; g.fillRect(r() * 512, r() * 512, 0.8 + r() * 1.2, 0.8 + r() * 1.2); }
+  for (let i = 0; i < 260; i++) { const v = 110 + r() * 80 | 0; g.fillStyle = `rgba(${v},${v - 6},${v - 10},${0.25 + r() * 0.3})`; g.beginPath(); g.arc(r() * 512, r() * 512, 1 + r() * 2.5, 0, 7); g.fill(); }
+  return grayTex(c, 1 / 0.6);
+}
 export function pileTexture(seed = 13) {
   // 地毯絨毛：細密雜點＋淡淡的大塊明暗
   const [c, g] = cv(256, 256), r = rng(seed);
@@ -191,9 +199,12 @@ export function makeMaterials() {
     rug: std(0xa9a39b, { roughness: 1 }),
     counter: std(0xe9e7e3, { roughness: 0.25 }),
     porcelain: std(0xfbfbfb, { roughness: 0.15 }),
-    mirror: std(0xd4dade, { roughness: 0.04, metalness: 0.9 }),          // 沒有即時反射，main.js 另外給它環境貼圖
+    mirror: std(0xd4dade, { roughness: 0, metalness: 0.9 }),          // 沒有即時反射，main.js 另外給它環境貼圖
     screen: std(0x0d0f12, { roughness: 0.2, metalness: 0.3 }),
     black: std(0x1e1f21, { roughness: 0.5 }),
+    // 書皮：低彩度的幾個顏色（不吃裝潢風格，也不套布紋）
+    book1: std(0x2f3e52, { roughness: 0.7 }), book2: std(0xb06a48, { roughness: 0.7 }), book3: std(0xe6ddc8, { roughness: 0.75 }),
+    book4: std(0x5d6b4f, { roughness: 0.7 }), book5: std(0x2b2a29, { roughness: 0.6 }), book6: std(0xc9a46a, { roughness: 0.7 }),
     leaf: std(0x4f7a3a, { roughness: 0.9 }),
     pot: std(0xcfc6b8, { roughness: 0.8 }),
     lamp: std(0xfff4e0, { emissive: 0xffd9a0, emissiveIntensity: 0.4, roughness: 0.9 }),
@@ -214,7 +225,8 @@ export function dressMaterials(M) {
   Object.assign(M.wood, { map: grain, bumpMap: grain, bumpScale: 0.4, roughness: 0.5 });
   for (const k of ['fabric', 'fabric2', 'linen', 'rug', 'curtain']) M[k].userData.soft = true;
   for (const k of ['fabric', 'fabric2', 'linen', 'rug', 'wood']) M[k].userData.meterUV = true;   // 家具 UV 以公尺計（furniture.js rbox）
-  M.counter.userData.sharp = true;
+  M.counter.userData.sharp = true; M.counter.userData.meterUV = true;
+  Object.assign(M.counter, { map: quartzTexture() }); M.counter.needsUpdate = true;
   Object.assign(M.entryDoor, { map: grainTexture(19), bumpMap: null }); M.entryDoor.needsUpdate = true;
   M.lobbyWall.map = tileTexture('#d9d2c6', '#c4bcae', 1, true, 23, 1.2); M.lobbyWall.needsUpdate = true;   // 120cm 見方的米色石材                // 檯面拼接處不倒角，才不會看到縫
   const pals = [['#e9dfcc', '#c98f5a', '#7c5a3c', '#2f3b45', '#d8b98a'], ['#5f7f8c', '#2e4651', '#c9b48f', '#e8e2d6', '#8aa3a8'], ['#efe8da', '#b9a382', '#5a6b5c', '#d6c3a1', '#3b3a36']];
@@ -237,14 +249,14 @@ export async function loadRealTextures(M, renderer, getState) {
     if (srgb) t.colorSpace = THREE.SRGBColorSpace;
     return t;
   };
-  const [floor, floorN, oak, oakN, linen, linenN, teddy, teddyN, plasterN] = await Promise.all([
+  const [floor, floorN, oak, oakN, linen, linenN, teddy, teddyN, plasterN, subway, subwayN] = await Promise.all([
     tex('floor_col', 1.7, true), tex('floor_nor', 1.7),
     tex('oak_gray', 0.9, true), tex('oak_nor', 0.9),
     tex('linen_gray', 0.45, true), tex('linen_nor', 0.45),
     tex('teddy_gray', 0.4, true), tex('teddy_nor', 0.4),
-    tex('plaster_nor', 3.2),
+    tex('plaster_nor', 3.2), tex('subway_gray', 1.27, true), tex('subway_nor', 1.27),
   ]);
-  REAL = { floor, floorN };
+  REAL = { floor, floorN, subway, subwayN };
   for (const k of ['fabric', 'fabric2', 'linen']) Object.assign(M[k], { map: linen, bumpMap: null, normalMap: linenN, normalScale: new THREE.Vector2(0.9, 0.9) });
   Object.assign(M.rug, { map: teddy, bumpMap: null, normalMap: teddyN, normalScale: new THREE.Vector2(1, 1) });
   Object.assign(M.wood, { map: oak, bumpMap: null, normalMap: oakN, normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.55 });
@@ -287,7 +299,9 @@ export function applyTheme(M, key) {
   M.floorWood.roughness = key === 'luxe' ? 0.18 : real ? 0.6 : 0.55;
   M.floorTile.map = texCache[key].tile;
   texCache[key].wallTile ??= tileTexture(key === 'luxe' ? '#efece6' : key === 'nordic' ? '#f1efe9' : '#e9e8e4', '#cfcac2', 2, key === 'luxe', 17, 0.6);
-  M.wallTile.map = texCache[key].wallTile; M.wallTile.needsUpdate = true;
+  M.wallTile.map = real ? REAL.subway : texCache[key].wallTile;   // 浴室牆：白色長條磚（輕奢維持大理石磚）
+  M.wallTile.normalMap = real ? REAL.subwayN : null; M.wallTile.color.set(real ? (key === 'nordic' ? 0xf7f4ee : 0xf0efed) : 0xffffff);
+  M.wallTile.needsUpdate = true;
   M.door.color.set(key === 'luxe' ? 0x3a322c : key === 'nordic' ? 0xe8dcc8 : 0xd9d3c8);
   M.baseboard.color.set(key === 'luxe' ? 0x3a322c : key === 'nordic' ? 0xd8c4a5 : 0xe3ded6);
   M.curtain.color.set(key === 'luxe' ? 0x8a8076 : key === 'nordic' ? 0xefe7d8 : 0xd9d6d0);
