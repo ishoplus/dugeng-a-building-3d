@@ -4,11 +4,25 @@ import { toX, toZ } from './plan.js';
 
 // 圓角：布面（userData.soft）圓角大、硬木櫃只留一點倒角，讓邊緣有高光
 const geoCache = new Map();
-function rbox(w, h, d, soft) {
+// meter：UV 改成公尺（布紋、木紋照真實尺寸鋪，不會跟著家具大小拉長）；掛畫這類整張貼圖的不改
+function rbox(w, h, d, soft, meter = false) {
   const m = Math.min(w, h, d), r = soft === 'sharp' ? 0 : soft ? Math.min(0.06, m * 0.42) : Math.min(0.006, m * 0.3);
-  const key = [w, h, d, soft].map(v => typeof v === 'number' ? v.toFixed(3) : v).join();
-  if (!geoCache.has(key)) geoCache.set(key, r < 0.002 || m < 0.012 ? new THREE.BoxGeometry(w, h, d) : new RoundedBoxGeometry(w, h, d, soft ? 3 : 1, r));
+  const key = [w, h, d, soft, meter].map(v => typeof v === 'number' ? v.toFixed(3) : v).join();
+  if (!geoCache.has(key)) {
+    const geo = r < 0.002 || m < 0.012 ? new THREE.BoxGeometry(w, h, d) : new RoundedBoxGeometry(w, h, d, soft ? 3 : 1, r);
+    if (meter) {                                  // BoxGeometry 依序 +x -x +y -y +z -z 六面，每面頂點數相同
+      const uv = geo.attributes.uv, per = uv.count / 6, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let i = 0; i < uv.count; i++) { const [a, b] = dims[Math.floor(i / per)]; uv.setXY(i, uv.getX(i) * a, uv.getY(i) * b); }
+    }
+    geoCache.set(key, geo);
+  }
   return geoCache.get(key);
+}
+// 換成真實模型（js/models.js）的家具：被取代的零件標 swap，模型載入後隱藏；size＝本地外框 [寬, 高, 深]
+function swapModel(g, name, size, keep = () => false) {
+  g.userData.model = { name, size };
+  g.traverse(o => { if (o.isMesh && !keep(o)) o.userData.swap = true; });
+  return g;
 }
 // 碗形面盆：外徑 20cm、高 12cm，內凹（Lathe 旋轉出來，內外兩層）
 let basin = null;
@@ -34,7 +48,7 @@ const FACE = { down: 0, right: Math.PI / 2, up: Math.PI, left: -Math.PI / 2 };
 function kit(g) {
   return {
     box(m, w, h, d, x = 0, y = 0, z = 0) {
-      const o = new THREE.Mesh(rbox(w, h, d, m.userData.sharp ? 'sharp' : !!m.userData.soft), m); o.position.set(x, y + h / 2, z); g.add(o); return o;
+      const o = new THREE.Mesh(rbox(w, h, d, m.userData.sharp ? 'sharp' : !!m.userData.soft, !!m.userData.meterUV), m); o.position.set(x, y + h / 2, z); g.add(o); return o;
     },
     // 枕頭／抱枕：大圓角再把中間鼓起
     pillow(m, w, h, d, x = 0, y = 0, z = 0) {
@@ -144,7 +158,7 @@ const ITEMS = {
     k.box(M.accent, 1.0, 0.02, 0.45, 0, 0.12, 0);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) k.box(M.accent, 0.03, 0.38, 0.03, sx * 0.5, 0, sz * 0.23);
     k.box(M.fabric2, 0.25, 0.04, 0.18, 0.2, 0.42, 0.05);
-    return g;
+    return swapModel(g, 'coffeeTable', [1.1, 0.4, 0.55]);
   },
   tvUnit(M, len = 1.8) {
     const g = new THREE.Group(), k = kit(g);
@@ -156,7 +170,7 @@ const ITEMS = {
     k.foliage(M.leaf, 14, 0.22, 0.25, len / 2 - 0.15, 0.62, 0, 3, 0.55);
     const bk = [M.accent, M.linen, M.wood, M.fabric, M.fabric2];               // 一排書，最後一本斜靠
     for (let i = 0; i < 5; i++) k.box(bk[i], 0.03 + (i % 3) * 0.006, 0.2 + ((i * 7) % 5) * 0.012, 0.15, -len / 2 + 0.2 + i * 0.042, 0.54, 0).rotation.z = i === 4 ? -0.35 : 0;
-    return g;
+    return swapModel(g, 'tvUnit', [len, 0.5, 0.4], o => o.material === M.screen);
   },
   dining(M, l = 1.4, w = 0.8, sides = 2) {
     const g = new THREE.Group(), k = kit(g);
@@ -177,7 +191,7 @@ const ITEMS = {
     k.cyl(M.black, 0.005, 0.005, 0.85, 0, 1.95, 0, 6);
     k.cyl(M.lamp, 0.08, 0.24, 0.18, 0, 1.78, 0);
     g.userData.noBlock = true; g.userData.light = [0, 1.7, 0, 1.6];
-    return g;
+    return swapModel(g, 'pendant', [0.43, 0.95, 0.43]);
   },
   shoeCabinet(M, len = 1.1) {
     const g = new THREE.Group(), k = kit(g);
@@ -192,7 +206,7 @@ const ITEMS = {
     k.cyl(M.soil ?? M.black, 0.16, 0.16, 0.01, 0, 0.35, 0, 24);
     k.cyl(M.wood, 0.012, 0.02, 1.0, 0, 0.36, 0, 6);
     k.foliage(M.leaf, 46, 1.1, 0.75, 0, 0.5, 0, 7, 1.15);
-    return g;
+    return swapModel(g, 'plant', [0.8, 1.05, 0.8]);
   },
   floorLamp(M) {
     const g = new THREE.Group(), k = kit(g);

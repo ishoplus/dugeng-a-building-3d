@@ -153,7 +153,7 @@ export const THEMES = {
 export function makeMaterials() {
   const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
   return {
-    paint: std(0xf2f0ec, { roughness: 0.95 }),
+    paint: Object.assign(std(0xf2f0ec, { roughness: 0.95 }), { userData: { worldUV: true } }),   // UV 用公尺，灰泥凹凸才不會被拉長
     facade: std(0x3e4043, { roughness: 0.75 }),          // 黑灰色系面磚（N3）
     facadeDark: std(0x8a8580, { roughness: 0.85 }),
     slab: std(0xe8e6e1, { roughness: 0.85 }),            // 白灰色系面磚／石材（N9）
@@ -213,6 +213,7 @@ export function dressMaterials(M) {
   Object.assign(M.rug, { map: pile, bumpMap: pile, bumpScale: 2 });
   Object.assign(M.wood, { map: grain, bumpMap: grain, bumpScale: 0.4, roughness: 0.5 });
   for (const k of ['fabric', 'fabric2', 'linen', 'rug', 'curtain']) M[k].userData.soft = true;
+  for (const k of ['fabric', 'fabric2', 'linen', 'rug', 'wood']) M[k].userData.meterUV = true;   // 家具 UV 以公尺計（furniture.js rbox）
   M.counter.userData.sharp = true;
   Object.assign(M.entryDoor, { map: grainTexture(19), bumpMap: null }); M.entryDoor.needsUpdate = true;
   M.lobbyWall.map = tileTexture('#d9d2c6', '#c4bcae', 1, true, 23, 1.2); M.lobbyWall.needsUpdate = true;   // 120cm 見方的米色石材                // 檯面拼接處不倒角，才不會看到縫
@@ -223,6 +224,36 @@ export function dressMaterials(M) {
   for (const k of ['fabric', 'fabric2', 'linen', 'rug', 'wood', 'curtain', 'leaf']) M[k].needsUpdate = true;
 }
 
+// ---- 真實材質貼圖（Poly Haven CC0，assets/tex；scripts/build_assets.sh 產生）
+// 布料／木紋／地毯是灰階，顏色仍由裝潢風格決定；地板保留原色，現代風再壓灰一點；輕奢維持大理石
+let REAL = null;
+const FLOOR_TINT = { modern: 0xcfc6bc, nordic: 0xffffff };
+export async function loadRealTextures(M, renderer, getState) {
+  const base = new URL('assets/tex/', document.baseURI), L = new THREE.TextureLoader();
+  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const tex = async (f, size, srgb) => {
+    const t = await L.loadAsync(new URL(f + '.webp', base).href);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = aniso; t.repeat.set(1 / size, 1 / size);
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  const [floor, floorN, oak, oakN, linen, linenN, teddy, teddyN, plasterN] = await Promise.all([
+    tex('floor_col', 1.7, true), tex('floor_nor', 1.7),
+    tex('oak_gray', 0.9, true), tex('oak_nor', 0.9),
+    tex('linen_gray', 0.45, true), tex('linen_nor', 0.45),
+    tex('teddy_gray', 0.4, true), tex('teddy_nor', 0.4),
+    tex('plaster_nor', 3.2),
+  ]);
+  REAL = { floor, floorN };
+  for (const k of ['fabric', 'fabric2', 'linen']) Object.assign(M[k], { map: linen, bumpMap: null, normalMap: linenN, normalScale: new THREE.Vector2(0.9, 0.9) });
+  Object.assign(M.rug, { map: teddy, bumpMap: null, normalMap: teddyN, normalScale: new THREE.Vector2(1, 1) });
+  Object.assign(M.wood, { map: oak, bumpMap: null, normalMap: oakN, normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.55 });
+  Object.assign(M.paint, { normalMap: plasterN, normalScale: new THREE.Vector2(0.12, 0.12) });
+  for (const k of ['fabric', 'fabric2', 'linen', 'rug', 'wood', 'paint']) M[k].needsUpdate = true;
+  const [fin, th] = getState();
+  applyFinish(M, fin, th);
+}
+
 const texCache = {};
 let bareTex = null;
 // 交屋狀態：bare 毛胚（清水混凝土／粉光地坪），sample 樣品屋（依裝潢風格）
@@ -231,6 +262,7 @@ export function applyFinish(M, finishKey, themeKey) {
     bareTex ??= { wall: concreteTexture('#b3b0aa', 21, 1.0), floor: concreteTexture('#9e9b95', 33, 2.4, 0.25), ceil: concreteTexture('#bdbab4', 45, 1.0) };
     M.paint.color.set(0xffffff); M.paint.map = bareTex.wall;
     M.floorWood.map = M.floorTile.map = bareTex.floor; M.floorWood.roughness = M.floorTile.roughness = 0.92;
+    M.floorWood.normalMap = null; M.floorWood.color.set(0xffffff);
     M.ceiling.map = bareTex.ceil; M.ceiling.color.set(0xffffff);
     M.downlight.visible = false;
   } else {
@@ -248,8 +280,11 @@ export function applyTheme(M, key) {
     wood: key === 'luxe' ? tileTexture('#ece8e1', '#d6d0c6', 2, true, 11, 1.6) : woodTexture(T.floor),
     tile: tileTexture(T.tile, '#b8b2a8', 3, key === 'luxe', 5, 0.9),
   };
-  M.floorWood.map = texCache[key].wood;
-  M.floorWood.roughness = key === 'luxe' ? 0.18 : 0.55;
+  const real = REAL && key !== 'luxe';
+  M.floorWood.map = real ? REAL.floor : texCache[key].wood;
+  M.floorWood.normalMap = real ? REAL.floorN : null;   // 原檔的粗糙度貼圖太亮（太光滑），鳥瞰時整片反白，改用固定粗糙度
+  M.floorWood.color.set(real ? FLOOR_TINT[key] : 0xffffff);
+  M.floorWood.roughness = key === 'luxe' ? 0.18 : real ? 0.6 : 0.55;
   M.floorTile.map = texCache[key].tile;
   texCache[key].wallTile ??= tileTexture(key === 'luxe' ? '#efece6' : key === 'nordic' ? '#f1efe9' : '#e9e8e4', '#cfcac2', 2, key === 'luxe', 17, 0.6);
   M.wallTile.map = texCache[key].wallTile; M.wallTile.needsUpdate = true;

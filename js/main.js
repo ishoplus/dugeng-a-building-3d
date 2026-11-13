@@ -8,7 +8,8 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { S, GX0, GY0, GW, GH, FLOOR_H, CEIL_H, FOOTPRINT, CORE_BOX, toX, toZ, toPX, toPY, buildPlan, wallSegments, decompose, UNIT_ORDER } from './plan.js';
-import { makeMaterials, applyTheme, applyFinish, dressMaterials, THEMES } from './materials.js';
+import { makeMaterials, applyTheme, applyFinish, dressMaterials, loadRealTextures, THEMES } from './materials.js';
+import { placeModels } from './models.js';
 import { buildFloor } from './build.js';
 import { buildReno, ruleOf, zoneOf, ZONES } from './reno.js';
 import { SCHEMES, parseSchemes, loadCustom } from './schemes.js';
@@ -112,6 +113,11 @@ city.onload = () => city.setOverview(state.mode === 'overview');
 const floorGroup = new THREE.Group();
 F.detail.forEach(m => floorGroup.add(m));
 const furnGroup = new THREE.Group(); F.furniture.forEach(m => furnGroup.add(m)); floorGroup.add(furnGroup);
+// 真實家具模型：先顯示程式家具，模型載好再換上（載不到就維持程式家具）
+const swapGroup = new THREE.Group(); F.swap.forEach(m => swapGroup.add(m)); furnGroup.add(swapGroup);
+const modelGroup = new THREE.Group(); modelGroup.visible = false; furnGroup.add(modelGroup);
+placeModels(F.models, modelGroup, M).then(() => { modelGroup.visible = true; swapGroup.visible = false; }, e => console.warn('家具模型載入失敗，沿用程式家具', e));
+loadRealTextures(M, renderer, () => [state.finish, state.theme]).catch(e => console.warn('材質貼圖載入失敗，沿用程式貼圖', e));
 const finGroup = new THREE.Group(); F.finish.forEach(m => finGroup.add(m)); floorGroup.add(finGroup);
 const ceilGroup = new THREE.Group(); F.ceiling.forEach(m => ceilGroup.add(m)); floorGroup.add(ceilGroup);
 const capGroup = new THREE.Group(); Object.values(F.caps).forEach(g => capGroup.add(g)); floorGroup.add(capGroup);
@@ -422,12 +428,14 @@ function updateSun() {
   hemi.intensity = 0.06 + (lit ? 0.12 : walk ? 0.55 : 0.5) * day;
   scene.environmentIntensity = 0.08 + (lit ? 0.22 : walk ? 0.55 : 0.45) * day;
   winLights.forEach(l => { l.intensity = (l.userData.bal ? 4.5 : 6) * day; l.color.set(0xe6eef7).lerp(cDusk, Math.max(0, 1 - Math.abs(Math.sin(el) - 0.05) / 0.2) * 0.5); });
-  renderer.toneMappingExposure = walk ? (lit ? 0.9 : 1.05) + 0.25 * night : 0.62 + 0.25 * night;
+  // 漫遊（桌機）：Neutral 色調比 ACES 暖、不偏灰，接近樣品屋實拍；其他模式維持 ACES
+  renderer.toneMapping = lit ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = walk ? (lit ? 1.0 + 0.05 * night : 1.05 + 0.25 * night) : 0.62 + 0.25 * night;
   const dusk = Math.max(0, 1 - Math.abs(Math.sin(el) - 0.05) / 0.2) * day;
   cFog.copy(cNight).lerp(cDay, day).lerp(cDusk, dusk * 0.6);
   scene.fog.color.copy(cFog);
-  M.lamp.emissiveIntensity = 0.5 + 3 * night;
-  M.downlight.emissiveIntensity = state.mode === 'walk' ? 0.6 + 2.5 * night : 0.4;
+  M.lamp.emissiveIntensity = 0.5 + (lit ? 2 * day : 0) + 3 * night;
+  M.downlight.emissiveIntensity = state.mode === 'walk' ? 0.6 + (lit ? 2.4 * day : 0) + 2.5 * night : 0.4;
   M.mass.emissiveIntensity = 0.16 * night;
   city.bmat.emissiveIntensity = 1.4 * night;
   city.wheelLit.emissiveIntensity = 2.5 * night;
@@ -437,7 +445,8 @@ function updateSun() {
     v.lights.forEach(l => l.intensity = on ? (v.indoor ? 6 : (v.key === 'lobby' ? 1.2 : 0.15) + 4 * night) * l.userData.w : 0);
     v.glow.emissiveIntensity = 1.2 + 2.5 * night;
   }
-  lamps.forEach(l => l.intensity = state.mode === 'overview' ? 0 : ((state.mode === 'walk' ? (lit ? 0 : 1.2) : 0.5) + 5 * night) * (l.userData.w ?? 1));
+  // 樣品屋白天也開燈（暖光），桌機漫遊才有足夠的對比讓燈光看得出來
+  lamps.forEach(l => l.intensity = state.mode === 'overview' ? 0 : ((state.mode === 'walk' ? (lit ? 2.2 * day : 1.2) : 0.5) + (lit ? 3.5 : 5) * night) * (l.userData.w ?? 1));
   const hh = Math.floor(state.time), mm = Math.round((state.time - hh) * 60);
   $('#timeLabel').textContent = `${hh}:${String(mm).padStart(2, '0')}`;
   $('#sunInfo').textContent = el > 0 ? `太陽高度 ${THREE.MathUtils.radToDeg(el).toFixed(0)}°` : '日落後';
@@ -1215,4 +1224,4 @@ if (params.get('selftest')) {
   }
   console.log('SELFTEST done, unreachable =', bad);
 }
-window.__app = { state, plan, walker, venues, W, setMode, selectUnit, setFloor, selectTower, setFinish, camera, controls, city };
+window.__app = { state, plan, walker, venues, W, setMode, selectUnit, setFloor, selectTower, setFinish, camera, controls, city, renderer, scene, hemi, lamps, winLights, gtao, M, updateSun, modelGroup };

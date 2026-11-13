@@ -33,9 +33,9 @@ export class Batcher {
     for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i), -p.getZ(i));
     this.add(mat, g);
   }
-  object(obj) {
+  object(obj, test = () => true) {
     obj.updateMatrixWorld(true);
-    obj.traverse(o => { if (o.isMesh) this.add(o.material, o.geometry.clone().applyMatrix4(o.matrixWorld)); });
+    obj.traverse(o => { if (o.isMesh && test(o)) this.add(o.material, o.geometry.clone().applyMatrix4(o.matrixWorld)); });
   }
   meshes({ shadow = true } = {}) {
     const out = [];
@@ -299,7 +299,7 @@ export function buildFloor(plan, M) {
     const xl = scan(-1, 0), xr = scan(1, 0), yt = scan(0, -1), yb = scan(0, 1);
     return [toX(xl) + half(xl - 2, f.y), toX(xr) - half(xr + 2, f.y), toZ(yt) + half(f.x, yt - 2), toZ(yb) - half(f.x, yb + 2)];
   };
-  const furn = new Batcher(), lampAt = [], furnBoxes = [], furnAll = [], furnNoBlock = [];
+  const furn = new Batcher(), swap = new Batcher(), models = [], lampAt = [], furnBoxes = [], furnAll = [], furnNoBlock = [];
   const winBox = L => { const a = L.nx === 0; return new THREE.Box3(new THREE.Vector3(a ? L.x - L.w / 2 : L.x - 0.35, L.y - L.h / 2, a ? L.z - 0.35 : L.z - L.w / 2), new THREE.Vector3(a ? L.x + L.w / 2 : L.x + 0.35, L.y + L.h / 2, a ? L.z + 0.35 : L.z + L.w / 2)); };
   const winBoxes = lights.map(winBox);
   for (const f of plan.furniture) {
@@ -310,6 +310,15 @@ export function buildFloor(plan, M) {
       const b = new THREE.Box3().setFromObject(g);
       const dx = Math.max(0, lim[0] - b.min.x) - Math.max(0, b.max.x - lim[1]), dz = Math.max(0, lim[2] - b.min.z) - Math.max(0, b.max.z - lim[3]);
       if ((dx || dz) && Math.abs(dx) < 0.2 && Math.abs(dz) < 0.2) { g.position.x += dx; g.position.z += dz; g.updateMatrixWorld(true); }
+    }
+    // 掛畫座標照牆中心線給，會整個埋進牆裡：背面貼回牆面（face＝正面朝向，背面在反方向）
+    const face = f.face || 'down', [fx, fy] = { down: [0, 1], up: [0, -1], right: [1, 0], left: [-1, 0] }[face];
+    const artLim = f.f === 'art' && roomLimits({ ...f, x: f.x + fx * 6, y: f.y + fy * 6 });   // 中心點在牆裡，往正面退 30cm 找房間
+    if (artLim) {
+      const b = new THREE.Box3().setFromObject(g), lim = artLim;
+      if (face === 'down') g.position.z += lim[2] - b.min.z; else if (face === 'up') g.position.z += lim[3] - b.max.z;
+      else if (face === 'right') g.position.x += lim[0] - b.min.x; else g.position.x += lim[1] - b.max.x;
+      g.updateMatrixWorld(true);
     }
     // 碰到窗台（窗下牆＋凸出 5cm 的窗台板）就往房間內推開，避免螢幕、床頭板跟窗台疊在一起閃爍
     for (const L of lights) {
@@ -325,7 +334,10 @@ export function buildFloor(plan, M) {
     // 床頭掛畫碰到窗就不掛
     const art = []; g.traverse(o => { if (o.userData.art) art.push(o); });
     if (art.some(o => { const b = new THREE.Box3().setFromObject(o); return winBoxes.some(w => w.intersectsBox(b)); })) art.forEach(o => o.removeFromParent());
-    furn.object(g);
+    if (g.userData.model) {                    // 會換成真實模型的零件另外一批，模型載好就把這批藏起來（載不到就照舊顯示）
+      furn.object(g, o => !o.userData.swap); swap.object(g, o => o.userData.swap);
+      models.push({ ...g.userData.model, unit: f.unit, matrix: g.matrixWorld.clone() });
+    } else furn.object(g);
     furnAll.push(new THREE.Box3().setFromObject(g)); furnNoBlock.push(!!g.userData.noBlock);
     if (!g.userData.noBlock && f.f !== 'plant') { const b = new THREE.Box3().setFromObject(g); if (b.max.y > 0.45) furnBoxes.push(b); }   // 盆栽可以站在窗簾前
     if (g.userData.lightAt) lampAt.push({ unit: f.unit, p: g.userData.lightAt });
@@ -441,7 +453,7 @@ export function buildFloor(plan, M) {
   const slabGeo = slabB.meshes()[0].geometry;
 
   return {
-    detail: det.meshes(), finish: fin.meshes(), blockedBare, furniture: furn.meshes(), ceiling: ceil.meshes({ shadow: false }), caps,
+    detail: det.meshes(), finish: fin.meshes(), blockedBare, furniture: furn.meshes(), swap: swap.meshes(), models, ceiling: ceil.meshes({ shadow: false }), caps,
     shell: shell.meshes(), mass: massB.meshes()[0], slabGeo, blocked, lights, lampAt, plates,
   };
 }

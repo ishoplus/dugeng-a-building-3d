@@ -37,7 +37,7 @@ def csp():
     except OSError: html = ''
     hs = ' '.join("'sha256-%s'" % base64.b64encode(hashlib.sha256(m.encode()).digest()).decode()
                   for m in re.findall(r'<script type="importmap">(.*?)</script>', html, re.S))
-    return ("default-src 'self'; script-src 'self' https://unpkg.com " + hs + "; connect-src 'self' https://unpkg.com; "
+    return ("default-src 'self'; script-src 'self' https://unpkg.com " + hs + "; connect-src 'self' blob: https://unpkg.com; "
             "img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
 
 def clean(d):

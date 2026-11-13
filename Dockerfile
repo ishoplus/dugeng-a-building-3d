@@ -5,6 +5,7 @@ COPY scripts/serve.py scripts/reqstore.py /app/scripts/
 COPY index.html og.jpg /app/build/
 COPY js/ /app/build/js/
 COPY img/ /app/site/img/
+COPY assets/ /app/site/assets/
 # 程式放進版本號目錄、首頁改指新路徑：xi-za.com 的 Cloudflare 會把 JS 快取 4 小時，不換路徑住戶會拿到舊版
 RUN V=v$(date +%s) \
  && mkdir -p /app/site/$V \

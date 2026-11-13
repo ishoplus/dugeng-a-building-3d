@@ -7,6 +7,7 @@ mkdir -p site
 rm -rf site/index.html
 mkdir -p "site/$V" && cp -R js "site/$V/js"
 sed "s#src=\"js/main.js\"#src=\"$V/js/main.js\"#" index.html > site/index.html
+rm -rf site/assets && cp -R assets site/assets   # 家具模型與材質貼圖（不放版本號目錄，換版不用重新下載）
 cp og.jpg site/og.jpg                       # LINE／FB 分享縮圖（og:image）
 # 只留最近 3 版，避免舊分頁還在載入時 404
 for d in $(ls -d site/v* | sort -r | tail -n +4); do rm -rf "$d"; done
